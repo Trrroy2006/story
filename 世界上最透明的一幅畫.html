@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>世界上最透明的一幅畫</title>
+<!--
+  致敬杉井光《世界上最透明的故事》。
+  一團星塵，只有三個角度能看見真相：
+  左（-115°）父親——櫻花樹下，伸手接住落瓣
+  正面（0°）一家三口——長椅上，母親、我、父親共讀一本書
+  右（+115°）「我」——獨自席地，讀著發光的書
+  拖曳旋轉尋找。無任何文字。私人致意用。
+-->
+<style>
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; overflow:hidden; }
+  body{
+    background:
+      radial-gradient(1100px 800px at 50% 42%, #0e3833 0%, #082421 58%, #051715 100%);
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  #aurora{
+    position:fixed; inset:0; pointer-events:none; opacity:0;
+    background:linear-gradient(115deg,
+      rgba(88,214,183,.10), rgba(120,220,235,.06) 35%,
+      rgba(88,214,183,.12) 70%, rgba(150,240,215,.08));
+    background-size:300% 300%;
+    transition:opacity 6s ease;
+  }
+  body.all #aurora{ opacity:1; animation:sway 16s ease-in-out infinite alternate; }
+  @keyframes sway{ from{background-position:0% 40%;} to{background-position:100% 60%;} }
+
+  canvas{ position:fixed; inset:0; touch-action:none; cursor:grab; }
+  canvas.grabbing{ cursor:grabbing; }
+
+  #dots{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
+    display:flex; gap:18px; pointer-events:none;
+  }
+  .dot{
+    width:10px; height:10px; border-radius:50%;
+    border:1.5px solid rgba(160,230,210,.5);
+    transition:all .8s ease;
+  }
+  .dot.found{
+    background:#9df0d8; border-color:#9df0d8;
+    box-shadow:0 0 12px rgba(140,240,210,.9);
+  }
+
+  #gesture{
+    position:fixed; left:50%; bottom:52px; transform:translateX(-50%);
+    opacity:.55; pointer-events:none; transition:opacity 1.2s ease;
+    animation:nudge 2.6s ease-in-out infinite;
+  }
+  #gesture.gone{ opacity:0; }
+  @keyframes nudge{ 0%,100%{transform:translateX(calc(-50% - 10px));}
+                    50%{transform:translateX(calc(-50% + 10px));} }
+</style>
+</head>
+<body>
+<div id="aurora"></div>
+<canvas id="cv"></canvas>
+
+<svg id="gesture" width="76" height="34" viewBox="0 0 76 34" fill="none">
+  <path d="M14 17 Q38 2 62 17" stroke="#bfeee0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M14 17 l7 -8 M14 17 l10 2" stroke="#bfeee0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M62 17 l-7 -8 M62 17 l-10 2" stroke="#bfeee0" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="38" cy="24" r="5" stroke="#bfeee0" stroke-width="2"/>
+</svg>
+
+<div id="dots">
+  <div class="dot" id="d0"></div>
+  <div class="dot" id="d1"></div>
+  <div class="dot" id="d2"></div>
+</div>
+
+<script>
+"use strict";
+/* ═══════════ 可調參數 ═══════════ */
+const TARGETS = [-2.007, 0, 2.007];   // 三個視角（弧度）：父親 / 一家三口 / 我
+const DIST = 900, F = 780;            // 相機距離、焦距
+const DEPTH = 340;                    // 粒子縱深散佈
+const SCALE = 0.72;                   // 畫面在世界座標的縮放
+const MAG_RANGE = 0.60;               // 磁吸作用範圍（弧度）
+/* ════════════════════════════════ */
+
+const PAL = {
+  deepTeal:[42,116,104], teal:[70,171,151], lightTeal:[96,197,173],
+  mint:[143,227,205], paleMint:[215,255,242], ice:[159,214,232],
+  white:[234,255,251], blossom:[240,192,208]   // 冷調櫻粉，只給櫻花用
+};
+const PKEYS = Object.keys(PAL);
+
+/* ── 繪圖小工具（1000×700 離屏畫布） ── */
+function fill(g,k){ const c=PAL[k]; g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`; }
+function E(g,x,y,rx,ry,rot,k,a){ g.save(); g.globalAlpha=a??1; fill(g,k);
+  g.translate(x,y); g.rotate(rot||0); g.beginPath();
+  g.ellipse(0,0,rx,ry,0,0,7); g.fill(); g.restore(); }
+function C(g,x,y,r,k,a){ E(g,x,y,r,r,0,k,a); }
+function R(g,x,y,w,h,k,a){ g.save(); g.globalAlpha=a??1; fill(g,k); g.fillRect(x,y,w,h); g.restore(); }
+function P(g,pts,k,a){ g.save(); g.globalAlpha=a??1; fill(g,k); g.beginPath();
+  g.moveTo(pts[0][0],pts[0][1]); for(let i=1;i<pts.length;i++) g.lineTo(pts[i][0],pts[i][1]);
+  g.closePath(); g.fill(); g.restore(); }
+
+/* 蓋章：先在周圍刻出一圈暗縫再落筆 → 元素之間有清楚分界 */
+function stamp(g, drawFn, gap){
+  gap = gap ?? 8;
+  const t=document.createElement('canvas'); t.width=1000; t.height=700;
+  const tg=t.getContext('2d'); drawFn(tg);
+  g.save();
+  g.globalCompositeOperation='destination-out';
+  for(let a=0;a<8;a++){
+    g.drawImage(t, Math.cos(a*Math.PI/4)*gap, Math.sin(a*Math.PI/4)*gap);
+  }
+  g.globalCompositeOperation='source-over';
+  g.drawImage(t,0,0);
+  g.restore();
+}
+
+function book(g,x,y,w,t,k){   // 攤開的書（V 形）
+  const h=w*0.11;
+  P(g,[[x-w/2,y+h],[x-4,y],[x-4,y+t],[x-w/2,y+h+t]],k);
+  P(g,[[x+w/2,y+h],[x+4,y],[x+4,y+t],[x+w/2,y+h+t]],k);
+  C(g,x,y+t*0.5,t*0.30,'white');
+}
+function dust(g,x0,y0,ytop,spread,n){  // 上升光塵
+  for(let i=0;i<n;i++){ const t=Math.pow(Math.random(),0.8);
+    const y=y0+(ytop-y0)*t, x=x0+(Math.random()-0.5)*spread*(0.25+t);
+    C(g,x,y,1.8+Math.random()*2.6, Math.random()<0.3?'white':'ice', 0.8-t*0.5); }
+}
+
+/* ── 三幅畫 ── */
+
+function sceneFather(g){       // 父親：櫻花樹下，伸手接住落瓣
+  E(g,470,666,270,14,0,'deepTeal',0.4);                     // 地面
+  // 樹幹（曲線疊橢圓，有機感）
+  stamp(g, tg=>{
+    for(let t=0;t<=1;t+=0.035){
+      const x=726+26*Math.sin(t*2.4+0.3)+t*16, y=658-460*t;
+      E(tg,x,y,15*(1-t*0.55),26,0.1,'deepTeal');
+    }
+    for(let t=0;t<=1;t+=0.05){                              // 往左伸的主枝
+      const x=738-t*190, y=302-t*88-22*Math.sin(t*3);
+      E(tg,x,y,9*(1-t*0.5),15,0.5,'deepTeal');
+    }
+    for(let t=0;t<=1;t+=0.07){                              // 右側小枝
+      E(tg,748+t*95,336-t*112,7*(1-t*0.5),12,-0.4,'deepTeal');
+    }
+  },6);
+  // 花冠（花團簇）
+  const clusters=[[598,222,92],[702,150,102],[806,214,90],[878,300,64],[540,296,56],[664,296,72]];
+  for(const [cx,cy,cr] of clusters){
+    const n=Math.round(cr*0.85);
+    for(let i=0;i<n;i++){
+      const a=Math.random()*6.28, rr=cr*Math.sqrt(Math.random());
+      const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr*0.82;
+      const c=Math.random();
+      C(g,x,y,5+Math.random()*7,
+        c<0.32?'blossom':c<0.62?'paleMint':c<0.84?'white':'mint',
+        0.75+Math.random()*0.25);
+    }
+  }
+  // 父親（整個人蓋章成一體，跟樹之間自帶暗縫）
+  stamp(g, tg=>{
+    E(tg,412,652,34,9,0,'teal');                            // 鞋
+    E(tg,376,650,32,9,0.05,'teal');
+    R(tg,366,556,26,92,'teal');                             // 褲腳
+    R(tg,404,556,26,92,'teal');
+    P(tg,[[350,338],[454,338],[468,452],[500,574],[314,574],[336,452]],'teal'); // 長風衣
+    P(tg,[[398,344],[410,574],[386,574]],'deepTeal',0.9);   // 門襟
+    E(tg,402,344,68,34,0,'teal');                           // 肩
+    P(tg,[[356,346],[398,302],[398,344]],'deepTeal');       // 立起的衣領
+    P(tg,[[448,346],[406,302],[406,344]],'deepTeal');
+    E(tg,344,436,22,76,0.10,'teal');                        // 左臂垂下
+    E(tg,468,398,20,70,-0.55,'teal');                       // 右臂抬起（伸向落瓣）
+    E(tg,502,336,12,9,-0.3,'teal');                         // 手
+    C(tg,402,258,42,'teal');                                // 頭
+    stamp(tg, hg=>{                                          // 帽子（在人物內也刻縫）
+      E(hg,402,232,62,13,-0.06,'deepTeal');                 // 帽簷
+      P(hg,[[374,230],[430,230],[424,184],[380,184]],'deepTeal'); // 帽冠
+      E(hg,402,185,23,8,0,'deepTeal');                      // 冠頂
+    },5);
+  },8);
+  // 飄落的花瓣（斜斜落向父親的手）
+  const petals=[[760,260],[706,318],[652,372],[598,420],[556,378],[540,300],[624,262],[688,222],[528,346],[512,336]];
+  for(const [px,py] of petals)
+    E(g,px,py,5.5,3.2,Math.random()*3,'blossom',0.55+Math.random()*0.4);
+  E(g,507,326,5.5,3.2,0.4,'blossom',0.95);                  // 即將落進手心的那一瓣
+}
+
+function sceneTogether(g){     // 一家三口：長椅上共讀一本書（母・我・父）
+  for(let i=0;i<14;i++)                                     // 頭頂零星的星
+    C(g,110+Math.random()*780,36+Math.random()*140,2+Math.random()*2.2,'ice',0.5);
+  stamp(g, tg=>{                                            // 長椅
+    R(tg,258,470,484,17,'deepTeal');
+    R(tg,296,487,13,106,'deepTeal'); R(tg,692,487,13,106,'deepTeal');
+  },7);
+  stamp(g, tg=>{                                            // 父親（右，最高）
+    E(tg,628,388,66,96,0,'teal');
+    R(tg,606,487,23,70,'teal'); R(tg,644,487,23,70,'teal');
+    C(tg,614,276,43,'teal');
+    E(tg,610,252,47,27,-0.10,'deepTeal');
+  },8);
+  stamp(g, tg=>{                                            // 母親（左，長髮）
+    E(tg,378,404,58,84,0,'mint');
+    P(tg,[[334,458],[424,458],[436,512],[322,512]],'mint'); // 裙
+    R(tg,360,512,14,48,'mint'); R(tg,396,512,14,48,'mint');
+    C(tg,390,302,39,'mint');
+    E(tg,386,278,46,25,-0.08,'deepTeal');                   // 髮頂
+    E(tg,350,348,18,60,0.16,'deepTeal');                    // 垂落的長髮
+    E(tg,424,344,16,54,-0.10,'deepTeal');
+  },8);
+  stamp(g, tg=>{                                            // 我（中，最小，坐在兩人之間偏前）
+    E(tg,502,420,46,62,0,'lightTeal');
+    R(tg,482,487,16,52,'lightTeal'); R(tg,510,487,16,52,'lightTeal');
+    C(tg,502,344,31,'lightTeal');
+    E(tg,505,326,34,18,0.08,'deepTeal');
+  },8);
+  stamp(g, tg=>{ book(tg,502,448,190,30,'paleMint'); },7);  // 三人共看的書
+  dust(g,502,432,330,90,20);
+}
+
+function sceneSon(g){          // 我：獨自席地而讀
+  E(g,478,648,205,16,0,'deepTeal',0.4);                     // 地面
+  stamp(g, tg=>{
+    E(tg,478,600,150,52,0,'lightTeal');                     // 盤起的腿
+    E(tg,514,452,78,130,-0.20,'lightTeal');                 // 身體（前傾）
+    E(tg,414,498,80,26,-0.42,'lightTeal');                  // 手臂
+    C(tg,452,298,54,'lightTeal');                           // 低著的頭
+    E(tg,447,268,60,32,-0.15,'deepTeal');                   // 頭髮
+  },8);
+  stamp(g, tg=>{ book(tg,384,528,210,38,'paleMint'); },7);  // 膝上發光的書
+  dust(g,384,504,180,100,32);                               // 升起的光塵
+}
+
+/* ── 取樣：輪廓優先（邊緣密、內部疏） ── */
+function nearest(r,g,b){
+  let bi=0,bd=1e9;
+  for(let i=0;i<PKEYS.length;i++){ const c=PAL[PKEYS[i]];
+    const d=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;
+    if(d<bd){bd=d;bi=i;} }
+  return bi;
+}
+function sample(drawFn,n){
+  const c=document.createElement('canvas'); c.width=1000; c.height=700;
+  const g=c.getContext('2d',{willReadFrequently:true});
+  drawFn(g);
+  const d=g.getImageData(0,0,1000,700).data;
+  const A=(x,y)=>d[(y*1000+x)*4+3];
+  const body=[], glow=[], edge=[];
+  for(let y=4;y<696;y++)for(let x=4;x<996;x++){
+    const i=(y*1000+x)*4, a=d[i+3];
+    if(a<70 || Math.random()>a/255) continue;
+    const isEdge = A(x+3,y)<40||A(x-3,y)<40||A(x,y+3)<40||A(x,y-3)<40;
+    if(isEdge){ edge.push(i); continue; }
+    (((d[i]+d[i+1]+d[i+2])/3>195)?glow:body).push(i);
+  }
+  const pts=[];
+  for(let k=0;k<n;k++){
+    const r=k%20;
+    let arr, kind;
+    if(r<9 && edge.length){ arr=edge; kind=2; }
+    else if(r<12 && glow.length){ arr=glow; kind=1; }
+    else { arr=body.length?body:(edge.length?edge:glow); kind=arr===edge?2:arr===glow?1:0; }
+    const i=arr[(Math.random()*arr.length)|0];
+    const px=(i/4)%1000, py=((i/4)/1000)|0;
+    const jit=kind===2?0.5:1.4;
+    pts.push({ x:(px-500)*SCALE+(Math.random()-0.5)*jit,
+               y:(py-368)*SCALE+(Math.random()-0.5)*jit,
+               ci:nearest(d[i],d[i+1],d[i+2]), kind });
+  }
+  return pts;
+}
+
+/* ── 由目標點反推 3D 位置（anamorphosis） ── */
+function buildSubset(pts,theta){
+  const cs=Math.cos(-theta), sn=Math.sin(-theta);
+  return pts.map(p=>{
+    const dz=(Math.random()*2-1)*DEPTH, zc=DIST+dz;
+    const qx=p.x*zc/F, qy=p.y*zc/F, qz=dz;
+    const sz = p.kind===2 ? 5.2+Math.random()*1.8
+             : p.kind===1 ? 5.8+Math.random()*2.0
+             :              4.2+Math.random()*1.6;
+    return { x:qx*cs+qz*sn, y:qy, z:-qx*sn+qz*cs,
+             ci:p.ci, kind:p.kind, sz,
+             vi:(Math.random()*NVAR)|0,
+             ph:Math.random()*6.28, ws:0.5+Math.random()*0.9,
+             tws:0.8+Math.random()*1.6 };
+  });
+}
+
+/* ── 畫布 ── */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let W=0,H=0,V=1,CX=0,CY=0;
+const dpr=Math.min(2,window.devicePixelRatio||1);
+function resize(){
+  W=window.innerWidth; H=window.innerHeight;
+  cv.width=W*dpr; cv.height=H*dpr;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  V=Math.min(W,H)/800; CX=W/2; CY=H/2;
+}
+window.addEventListener('resize',resize); resize();
+
+/* ── 碎片精靈：角形紙屑，邊緣銳利 ── */
+const SHAPES=[
+  [[8,26],[22,6],[36,24],[24,38]],
+  [[6,20],[30,8],[38,20],[16,36]],
+  [[10,32],[18,8],[28,10],[34,30],[20,38]],
+  [[6,24],[36,12],[30,28]],
+  [[12,6],[22,10],[34,36],[20,38]],
+  [[6,14],[26,6],[38,26],[26,34],[12,32]]
+];
+const NVAR=SHAPES.length;
+const sprites=PKEYS.map(k=>{
+  const c=PAL[k];
+  return SHAPES.map(sh=>{
+    const s=document.createElement('canvas'); s.width=s.height=44;
+    const g=s.getContext('2d');
+    g.shadowColor=`rgba(${c[0]},${c[1]},${c[2]},.8)`; g.shadowBlur=3;
+    g.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.96)`;
+    g.beginPath(); g.moveTo(sh[0][0],sh[0][1]);
+    for(let i=1;i<sh.length;i++) g.lineTo(sh[i][0],sh[i][1]);
+    g.closePath(); g.fill();
+    g.shadowBlur=0;
+    // 內部一小塊高光，讓碎片有「切面」感
+    const cx0=sh.reduce((s2,p)=>s2+p[0],0)/sh.length,
+          cy0=sh.reduce((s2,p)=>s2+p[1],0)/sh.length;
+    g.fillStyle='rgba(255,255,255,.55)';
+    g.beginPath(); g.moveTo(cx0+(sh[0][0]-cx0)*.45, cy0+(sh[0][1]-cy0)*.45);
+    for(let i=1;i<sh.length;i++)
+      g.lineTo(cx0+(sh[i][0]-cx0)*.45, cy0+(sh[i][1]-cy0)*.45);
+    g.closePath(); g.fill();
+    return s;
+  });
+});
+
+/* ── 建立粒子雲 ── */
+const mobile = W*H < 480000;
+const NPER = mobile?1900:3400, NAMB = mobile?220:380;
+const subsets=[
+  buildSubset(sample(sceneFather  ,NPER), TARGETS[0]),
+  buildSubset(sample(sceneTogether,NPER), TARGETS[1]),
+  buildSubset(sample(sceneSon     ,NPER), TARGETS[2])
+];
+const ambient=Array.from({length:NAMB},()=>{
+  const r=520*Math.cbrt(Math.random()), a=Math.random()*6.28, b=Math.acos(2*Math.random()-1);
+  return { x:r*Math.sin(b)*Math.cos(a), y:r*Math.cos(b)*0.7, z:r*Math.sin(b)*Math.sin(a),
+           ci:PKEYS.indexOf(Math.random()<0.6?'ice':'mint'), sz:2.2+Math.random()*1.8,
+           kind:0, vi:(Math.random()*NVAR)|0,
+           ph:Math.random()*6.28, ws:0.4+Math.random()*0.8, tws:0.6+Math.random()*1.4 };
+});
+
+/* ── 互動狀態 ── */
+let yaw=2.9, pitch=0, vy=0, dragging=false, lx=0, ly=0, idle=0;
+const found=[false,false,false];
+let pulse=0, pulseIdx=-1;
+
+/* ── 音效（發現視角時的風鈴） ── */
+let AC=null;
+function initAudio(){
+  if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state==='suspended') AC.resume();
+}
+function chime(freq, when, dur, vol){
+  if(!AC) return;
+  when=when||0; dur=dur||1.6; vol=vol||0.06;
+  const t=AC.currentTime+when;
+  const o=AC.createOscillator(), o2=AC.createOscillator();
+  const g=AC.createGain(), g2=AC.createGain(), f=AC.createBiquadFilter();
+  o.type='sine'; o.frequency.value=freq;
+  o2.type='sine'; o2.frequency.value=freq*2.01; g2.gain.value=0.3;
+  f.type='lowpass'; f.frequency.value=2600;
+  o.connect(g); o2.connect(g2); g2.connect(g); g.connect(f); f.connect(AC.destination);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vol,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.start(t); o2.start(t); o.stop(t+dur+0.1); o2.stop(t+dur+0.1);
+}
+const NOTES=[587.33,739.99,880];   // D5 / F#5 / A5，一個視角一個音
+
+/* ── 對齊後的動態點綴（花瓣・星光・光塵） ── */
+const gates=[0,0,0];
+function newPetal(any){
+  return { x:540+Math.random()*360, y:any?100+Math.random()*420:100+Math.random()*230,
+           vx:-(14+Math.random()*22), vy:26+Math.random()*24,
+           rot:Math.random()*6.28, vr:(Math.random()<0.5?-1:1)*(0.6+Math.random()*1.2),
+           sw:Math.random()*6.28, sz:4.2+Math.random()*3.2, pink:Math.random()<0.6 };
+}
+const petals=Array.from({length:24},()=>newPetal(true));
+const stars=Array.from({length:15},()=>({ x:120+Math.random()*760, y:38+Math.random()*150,
+  ph:Math.random()*6.28, sp:0.6+Math.random()*1.4, s:2.6+Math.random()*3 }));
+function newMote(bx,by,topY,spread){
+  return { bx, by, topY, spread, x:bx+(Math.random()-0.5)*26,
+           y:by-Math.random()*30, v:22+Math.random()*26,
+           sw:Math.random()*6.28, r:1.6+Math.random()*2 };
+}
+const famMotes=Array.from({length:12},()=>newMote(502,448,215,60));
+const sonMotes=Array.from({length:16},()=>newMote(384,522,165,90));
+
+/* ── 終幕走馬燈 ── */
+let carousel=false, carIdx=0, carPhase='dwell', carT=0;
+
+function wrapPi(a){ a=(a+Math.PI)%(2*Math.PI); if(a<0)a+=2*Math.PI; return a-Math.PI; }
+function smooth(t){ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); }
+
+cv.addEventListener('pointerdown',e=>{
+  dragging=true; lx=e.clientX; ly=e.clientY; vy=0;
+  carousel=false; initAudio();
+  cv.classList.add('grabbing'); cv.setPointerCapture(e.pointerId);
+  document.getElementById('gesture').classList.add('gone');
+});
+cv.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY;
+  const d=dx*0.0045; yaw+=d; vy=d;
+  pitch=Math.max(-0.5,Math.min(0.5,pitch-dy*0.003));
+  idle=0;
+});
+function up(){ dragging=false; cv.classList.remove('grabbing'); }
+cv.addEventListener('pointerup',up);
+cv.addEventListener('pointercancel',up);
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+
+/* ── 主迴圈 ── */
+let t0=performance.now(), lastNow=t0;
+function frame(now){
+  const t=(now-t0)/1000;
+  const dt=Math.min(0.05,(now-lastNow)/1000); lastNow=now;
+  ctx.clearRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+
+  if(!dragging){
+    yaw+=vy; vy*=0.94; pitch*=0.93;
+    idle+=1/60;
+  }
+
+  const errs=TARGETS.map(th=>Math.hypot(wrapPi(yaw-th), pitch*1.1));
+  let act=0; for(let i=1;i<3;i++) if(errs[i]<errs[act]) act=i;
+  const aAct=smooth((0.34-errs[act])/(0.34-0.05));
+
+  // 終幕走馬燈：三幅找齊後，閒置時自動巡遊三個視角
+  const allFound=found.every(Boolean);
+  if(allFound && !dragging && !carousel && idle>4){
+    carousel=true; vy=0; carIdx=act; carPhase='dwell'; carT=0;
+  }
+  if(carousel && !dragging){
+    if(carPhase==='dwell'){
+      yaw+=wrapPi(TARGETS[carIdx]-yaw)*0.08; pitch*=0.9; carT+=dt;
+      if(carT>5.2){ carPhase='move'; carIdx=(carIdx+1)%3; carT=0; }
+    }else{
+      const dd=wrapPi(TARGETS[carIdx]-yaw);
+      yaw+=Math.sign(dd)*Math.min(Math.abs(dd)*0.05+0.0012,0.012);
+      pitch*=0.9;
+      if(Math.abs(dd)<0.03){ carPhase='dwell'; carT=0; }
+    }
+  }
+
+  // 磁吸：靠近就明顯吸過去，並吃掉多餘慣性
+  if(!carousel && !dragging && errs[act]<MAG_RANGE && Math.abs(vy)<0.006){
+    const pull=0.05*(1-errs[act]/MAG_RANGE)+0.11*aAct;
+    yaw+=wrapPi(TARGETS[act]-yaw)*pull;
+    pitch*=0.88;
+    vy*=0.86;
+  }
+  if(!carousel && !dragging && idle>5 && aAct<0.3) yaw+=0.0016;
+
+  if(aAct>0.92 && !found[act]){
+    found[act]=true; pulse=1; pulseIdx=act;
+    document.getElementById('d'+act).classList.add('found');
+    chime(NOTES[act]);
+    if(found.every(Boolean)){
+      document.body.classList.add('all');
+      chime(587.33,0.55,1.4,0.05); chime(739.99,0.72,1.4,0.05);
+      chime(880,0.9,1.6,0.05); chime(1174.66,1.2,2.4,0.04);
+    }
+  }
+  if(pulse>0) pulse=Math.max(0,pulse-0.018);
+
+  const cyw=Math.cos(yaw), syw=Math.sin(yaw);
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+
+  function drawP(p,alpha,aSub,boost){
+    let x=p.x*cyw+p.z*syw, z=-p.x*syw+p.z*cyw, y=p.y;
+    const w=(1-aSub)*3.5;
+    if(w>0.05){ x+=Math.sin(t*p.ws+p.ph)*w; y+=Math.cos(t*p.ws*0.9+p.ph)*w; }
+    const y2=y*cp-z*sp, zz=(y*sp+z*cp)+DIST;
+    if(zz<140) return;
+    const s=F/zz;
+    const X=CX+x*s*V, Y=CY+y2*s*V;
+    const tw=0.85+0.15*Math.sin(t*p.tws+p.ph);
+    const damp=1-aSub*0.7;
+    ctx.globalAlpha=Math.min(1, alpha*(1-(1-tw)*damp));
+    const sz=p.sz*(0.55+0.45*s)*V*(boost||1);   // 壓縮遠近尺寸差，畫面更整齊
+    ctx.drawImage(sprites[p.ci][p.vi], X-sz/2, Y-sz/2, sz, sz);
+  }
+
+  const ambA=0.15*(1-aAct*0.8);
+  for(const p of ambient) drawP(p,ambA,0,1);
+
+  for(let i=0;i<3;i++){
+    const aSub=(i===act)?aAct:0;
+    const alpha=(i===act)?(0.80+0.20*aAct):0.80*(1-aAct*0.95);
+    const boost=(i===pulseIdx)?(1+pulse*0.5):1;
+    for(const p of subsets[i]){
+      const mul = p.kind===2?1.0 : p.kind===1?1.0 : 0.66;
+      drawP(p, alpha*mul, aSub, boost);
+    }
+  }
+
+  /* ── 對齊後的動態點綴 ── */
+  const mapX=px=>CX+(px-500)*SCALE*V, mapY=py=>CY+(py-368)*SCALE*V;
+  for(let i=0;i<3;i++){
+    const gt=(i===act)?Math.max(0,(aAct-0.5)*2):0;
+    gates[i]+=(gt-gates[i])*0.08;
+  }
+  if(gates[0]>0.02){                       // 父親：櫻花瓣持續飄落
+    const g0=gates[0];
+    for(const p of petals){
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.rot+=p.vr*dt;
+      if(p.y>648||p.x<170) Object.assign(p,newPetal(false));
+      const xd=p.x+Math.sin(t*1.3+p.sw)*14;
+      ctx.save();
+      ctx.translate(mapX(xd),mapY(p.y)); ctx.rotate(p.rot);
+      ctx.globalAlpha=0.8*g0;
+      ctx.fillStyle=p.pink?'rgba(240,192,208,1)':'rgba(230,248,242,1)';
+      ctx.beginPath(); ctx.ellipse(0,0,p.sz*V,p.sz*0.55*V,0,0,7); ctx.fill();
+      ctx.restore();
+    }
+  }
+  if(gates[1]>0.02){                       // 一家三口：星星呼吸＋書頁光塵
+    const g1=gates[1];
+    for(const st of stars){
+      const a=(0.25+0.75*Math.max(0,Math.sin(t*st.sp+st.ph)))*g1;
+      const s=st.s*V, x=mapX(st.x), y=mapY(st.y);
+      ctx.globalAlpha=a; ctx.fillStyle='rgba(234,255,251,1)';
+      ctx.beginPath();
+      ctx.moveTo(x,y-s); ctx.lineTo(x+s*0.35,y); ctx.lineTo(x,y+s); ctx.lineTo(x-s*0.35,y);
+      ctx.closePath(); ctx.fill();
+    }
+    drawMotes(famMotes,g1);
+  }
+  if(gates[2]>0.02) drawMotes(sonMotes,gates[2]);   // 我：書中升起的光塵
+
+  function drawMotes(motes,g){
+    ctx.save(); ctx.shadowColor='rgba(180,255,230,.9)'; ctx.shadowBlur=8*V;
+    for(const m of motes){
+      m.y-=m.v*dt;
+      const prog=(m.by-m.y)/(m.by-m.topY);
+      if(prog>=1){ Object.assign(m,newMote(m.bx,m.by,m.topY,m.spread)); continue; }
+      const xd=m.x+Math.sin(t*1.1+m.sw)*(6+m.spread*prog);
+      ctx.globalAlpha=(1-prog)*0.85*g;
+      ctx.fillStyle='rgba(215,255,242,1)';
+      ctx.beginPath(); ctx.arc(mapX(xd),mapY(m.y),m.r*V,0,7); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  if(pulse>0){
+    const g=ctx.createRadialGradient(CX,CY,0,CX,CY,Math.max(W,H)*0.6);
+    g.addColorStop(0,`rgba(160,240,215,${0.30*pulse})`);
+    g.addColorStop(1,'rgba(160,240,215,0)');
+    ctx.globalAlpha=1; ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
