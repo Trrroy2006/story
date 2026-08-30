@@ -1,800 +1,1639 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>世界上最透明的一幅畫</title>
-<!--
-  致敬杉井光《世界上最透明的故事》。
-  一團星塵，只有三個角度能看見真相：
-  左（-115°）父親——櫻花樹下，伸手接住落瓣
-  正面（0°）一家三口——月下牽手，牽起的手發著光
-  右（+115°）「我」——伏案寫字，稿紙發著光
-  拖曳旋轉尋找。無任何文字。私人致意用。
--->
+<meta charset="utf-8">
+<title>大阪へようこそ</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Shippori+Mincho:wght@600;800&display=swap" rel="stylesheet">
+
 <style>
-  *{ margin:0; padding:0; box-sizing:border-box; }
-  html,body{ height:100%; overflow:hidden; }
-  body{
-    background:
-      radial-gradient(1100px 800px at 50% 42%, #0e3833 0%, #082421 58%, #051715 100%);
-    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
-  }
-  #aurora{
-    position:fixed; inset:0; pointer-events:none; opacity:0;
-    background:linear-gradient(115deg,
-      rgba(88,214,183,.10), rgba(120,220,235,.06) 35%,
-      rgba(88,214,183,.12) 70%, rgba(150,240,215,.08));
-    background-size:300% 300%;
-    transition:opacity 6s ease;
-  }
-  body.all #aurora{ opacity:1; animation:sway 16s ease-in-out infinite alternate; }
-  @keyframes sway{ from{background-position:0% 40%;} to{background-position:100% 60%;} }
+/* ============================================================
+   大阪へようこそ  —  a little send-off animation
+   ============================================================ */
+:root{
+  --mincho:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho","YuMincho","MS Mincho","Songti TC","Noto Serif TC","Microsoft JhengHei",serif;
+  --maru:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic","Meiryo","PingFang TC","Microsoft JhengHei","MS Gothic",sans-serif;
+  --shu:#e2483b;      /* 朱色 */
+  --beni:#c8102e;
+  --kin:#e0b64a;      /* 金 */
+  --ai:#12305a;       /* 藍 */
+  --kon:#0a1628;
+  --nama:#fdf6e9;     /* 生成り */
+  --sakura:#f6b3c4;
+  --matcha:#5f8a5a;
+}
 
-  canvas{ position:fixed; inset:0; touch-action:none; cursor:grab; }
-  canvas.grabbing{ cursor:grabbing; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#08111f;
+  color:var(--nama);
+  font-family:var(--maru);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
 
-  #dots{
-    position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
-    display:flex; gap:18px; pointer-events:none;
-  }
-  .dot{
-    width:10px; height:10px; border-radius:50%;
-    border:1.5px solid rgba(160,230,210,.5);
-    transition:all .8s ease;
-  }
-  .dot.found{
-    background:#9df0d8; border-color:#9df0d8;
-    box-shadow:0 0 12px rgba(140,240,210,.9);
-  }
+#app{
+  position:fixed; inset:0; overflow:hidden;
+  background:#08111f;
+  cursor:pointer;
+  user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+}
 
-  #caption{
-    position:fixed; left:50%; bottom:64px; transform:translateX(-50%);
-    width:min(88vw,660px); text-align:center; pointer-events:none;
-    font-family:"Noto Serif TC","Songti TC","LiSong Pro","PMingLiU",serif;
-    font-size:15px; letter-spacing:.16em; line-height:2.15;
-    color:#cfeee0; text-shadow:0 0 16px rgba(140,240,210,.35);
-    opacity:0; transition:opacity 2s ease;
-  }
-  #caption.show{ opacity:.92; }
+/* ---------- scene machinery ---------- */
+.scene{
+  position:absolute; inset:0;
+  opacity:0; visibility:hidden;
+  transition:opacity .85s ease, visibility .85s;
+}
+.scene.on{opacity:1;visibility:visible}
+.scene:not(.on) *{animation-play-state:paused !important}
 
-  #gesture{
-    position:fixed; left:50%; bottom:52px; transform:translateX(-50%);
-    opacity:.55; pointer-events:none; transition:opacity 1.2s ease;
-    animation:nudge 2.6s ease-in-out infinite;
-  }
-  #gesture.gone{ opacity:0; }
-  @keyframes nudge{ 0%,100%{transform:translateX(calc(-50% - 10px));}
-                    50%{transform:translateX(calc(-50% + 10px));} }
+/* ---------- captions ---------- */
+.cap{position:absolute;left:0;right:0;z-index:30;text-align:center;padding:0 6vw;pointer-events:none}
+.cap.top{top:9%}
+.cap.bottom{bottom:9%}
+.cap .jp{
+  font-family:var(--mincho); font-weight:800;
+  font-size:clamp(24px,6.2vmin,54px);
+  letter-spacing:.16em; line-height:1.3;
+  text-shadow:0 2px 22px rgba(0,0,0,.55);
+  opacity:0; animation:rise 1.1s cubic-bezier(.2,.8,.3,1) .35s forwards;
+}
+.cap .zh{
+  font-family:var(--maru); font-weight:700;
+  font-size:clamp(14px,3.3vmin,23px);
+  letter-spacing:.14em; line-height:1.75;
+  margin-top:.85em; opacity:0;
+  animation:rise 1.1s cubic-bezier(.2,.8,.3,1) .95s forwards;
+}
+.cap .rule{
+  width:0; height:2px; margin:1.1em auto 0;
+  background:linear-gradient(90deg,transparent,var(--kin),transparent);
+  animation:widen 1.4s ease 1.3s forwards;
+}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+/* rise variant that keeps a horizontal centring translate */
+@keyframes riseC{from{opacity:0;transform:translate(-50%,18px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes bubIn{from{opacity:0;transform:translate(-50%,12px) scale(.75)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes widen{to{width:min(58%,340px)}}
+
+/* ============================================================
+   SCENE 1 — 夜空 / 出發
+   ============================================================ */
+.s1{background:
+   radial-gradient(120% 90% at 20% 8%, #24406e 0%, transparent 60%),
+   linear-gradient(180deg,#050c1a 0%,#0d1e3c 45%,#1d3560 78%,#3a4f7a 100%);}
+.stars span{position:absolute;background:#fff;border-radius:50%;animation:twinkle 3.4s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.12;transform:scale(.7)}50%{opacity:1;transform:scale(1)}}
+.moon{
+  position:absolute; top:11%; right:13%;
+  width:14vmin;height:14vmin;border-radius:50%;
+  background:radial-gradient(circle at 34% 32%,#fffdf2,#f4e6bd 60%,#e3cf98);
+  box-shadow:0 0 8vmin rgba(255,247,214,.35), inset -1.4vmin -1.4vmin 0 rgba(0,0,0,.05);
+  animation:moonGlow 6s ease-in-out infinite;
+}
+@keyframes moonGlow{0%,100%{box-shadow:0 0 6vmin rgba(255,247,214,.28)}50%{box-shadow:0 0 12vmin rgba(255,247,214,.45)}}
+.moon::after{content:"";position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 63% 38%,rgba(180,150,100,.28) 0 9%,transparent 10%),
+             radial-gradient(circle at 38% 60%,rgba(180,150,100,.22) 0 7%,transparent 8%),
+             radial-gradient(circle at 58% 72%,rgba(180,150,100,.18) 0 5%,transparent 6%)}
+.cityglow{position:absolute;left:0;right:0;bottom:0;height:22%;
+  background:radial-gradient(70% 100% at 72% 100%,rgba(255,170,90,.20),transparent 70%),
+             radial-gradient(50% 100% at 25% 100%,rgba(150,180,255,.10),transparent 70%)}
+.shoot{position:absolute;top:15%;left:56%;width:15vmin;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,#fff);opacity:0;
+  animation:shoot 7s linear 2.4s infinite}
+@keyframes shoot{0%{opacity:0;transform:rotate(24deg) translateX(0)}3%{opacity:.9}9%{opacity:0;transform:rotate(24deg) translateX(30vmin)}100%{opacity:0;transform:rotate(24deg) translateX(30vmin)}}
+
+.cloud{position:absolute;border-radius:999px;background:rgba(255,255,255,.10);filter:blur(1.5vmin)}
+.cloud::before,.cloud::after{content:"";position:absolute;border-radius:999px;background:inherit}
+.c1{width:44vmin;height:9vmin;top:63%;left:-50vmin;animation:drift 26s linear infinite}
+.c1::before{width:22vmin;height:14vmin;top:-6vmin;left:8vmin}
+.c1::after{width:16vmin;height:11vmin;top:-4vmin;left:26vmin}
+.c2{width:34vmin;height:7vmin;top:78%;left:-40vmin;animation:drift 19s linear 4s infinite;opacity:.7}
+.c2::before{width:17vmin;height:11vmin;top:-5vmin;left:6vmin}
+.c3{width:26vmin;height:6vmin;top:44%;left:-30vmin;animation:drift 33s linear 2s infinite;opacity:.45}
+.c3::before{width:14vmin;height:9vmin;top:-4vmin;left:5vmin}
+@keyframes drift{to{transform:translateX(180vw)}}
+
+.plane1{position:absolute;top:38%;left:-34vmin;width:30vmin;animation:cruise 6.6s cubic-bezier(.4,0,.6,1) .3s forwards}
+@keyframes cruise{
+  0%{transform:translate(0,0) rotate(-4deg)}
+  50%{transform:translate(70vw,-5vh) rotate(-2deg)}
+  100%{transform:translate(148vw,-3vh) rotate(-1deg)}
+}
+.trail{position:absolute;top:43.5%;left:0;height:2px;width:0;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 10px,transparent 10px 22px);
+  animation:trailGrow 6.6s cubic-bezier(.4,0,.6,1) .3s forwards;opacity:.55}
+@keyframes trailGrow{0%{width:0}100%{width:100%}}
+
+/* ============================================================
+   SCENE 2 — 関西空港 着陸
+   ============================================================ */
+/* side-view touchdown: the plane settles mid-frame while sea, terminal
+   and runway markings scroll past to sell the rolling motion */
+.s2{background:linear-gradient(180deg,#2c2454 0%,#5f3468 26%,#a34a68 46%,#dd6f58 60%,#f79a5f 70%,#ffc98c 78%,#ffe3ae 86%,#ffe3ae 100%)}
+@keyframes blink{0%,100%{opacity:.18}50%{opacity:1}}
+@keyframes bgSlide{to{background-position-x:-26vmin}}
+
+.sun2{position:absolute;left:50%;top:60%;width:36vmin;height:36vmin;transform:translate(-50%,-50%);
+  border-radius:50%;background:radial-gradient(circle,#fff3cd 0%,#ffcf7e 34%,#ff9e58 52%,rgba(255,158,88,0) 72%);
+  animation:sunPulse 5s ease-in-out infinite}
+@keyframes sunPulse{0%,100%{opacity:.85;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}}
+
+.gull{position:absolute;opacity:.8}
+.gull svg{display:block;width:100%}
+.g1{top:27%;left:74%;width:7vmin;animation:gullDrift 13s linear .2s both}
+.g2{top:21%;left:60%;width:5vmin;animation:gullDrift 16s linear 1s both}
+@keyframes gullDrift{0%{transform:translate(0,0)}50%{transform:translate(-24vw,1.5vh)}100%{transform:translate(-48vw,0)}}
+
+.sea{position:absolute;left:0;right:0;bottom:20%;height:17%;
+  border-top:1px solid rgba(255,220,170,.55);
+  background:linear-gradient(180deg,#f2925e 0%,#c05e6e 45%,#6f3f6b 100%)}
+.sea::after{content:"";position:absolute;inset:0;
+  background-image:repeating-linear-gradient(90deg,rgba(255,226,170,.35) 0 5vmin,transparent 5vmin 13vmin);
+  background-size:26vmin 100%;
+  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.85),rgba(0,0,0,.12));
+  mask-image:linear-gradient(180deg,rgba(0,0,0,.85),rgba(0,0,0,.12));
+  animation:bgSlide 2.2s linear infinite}
+
+.terminal{position:absolute;left:0;bottom:20.6%;width:170vmin;
+  animation:termSlide 10s linear .2s both}
+.terminal svg{display:block;width:100%}
+@keyframes termSlide{0%{transform:translateX(28vw)}100%{transform:translateX(-98vw)}}
+.beacon{animation:blink 1.1s ease-in-out infinite}
+
+.runwayS{position:absolute;left:0;right:0;bottom:0;height:21%;
+  border-top:.5vmin solid #5d6690;
+  background:linear-gradient(180deg,#4a5478,#2b3350 55%,#1d2438)}
+.lightrow{position:absolute;left:0;right:0;height:1.2vmin;
+  background-image:radial-gradient(circle at .6vmin 50%,#ffd98a 0 .5vmin,rgba(255,217,138,0) .62vmin);
+  background-size:13vmin 100%;animation:bgSlide 1.1s linear infinite}
+.lightrow.hi{bottom:20.4%;filter:drop-shadow(0 0 .8vmin #ffb84d)}
+.lightrow.lo{bottom:2.2%;opacity:.75;filter:drop-shadow(0 0 .7vmin #ffb84d)}
+.dashline{position:absolute;left:0;right:0;bottom:9.5%;height:1vmin;
+  background-image:repeating-linear-gradient(90deg,#f2ead0 0 12vmin,transparent 12vmin 26vmin);
+  background-size:26vmin 100%;opacity:.9;
+  animation:bgSlide .95s linear infinite}
+
+.apSign{position:absolute;right:-46vmin;bottom:15.5%;width:38vmin;max-width:270px;
+  animation:signPass 3.8s linear 4s both}
+.apSign svg{display:block;width:100%}
+@keyframes signPass{0%{transform:translateX(0)}100%{transform:translateX(-155vw)}}
+
+.plane2b{position:absolute;left:27%;bottom:12.5%;width:36vmin;max-width:280px;
+  animation:land2 5.4s cubic-bezier(.32,.42,.38,1) .35s both;
+  filter:drop-shadow(0 1.4vmin 2vmin rgba(20,10,30,.35))}
+.plane2b svg{display:block;width:100%}
+@keyframes land2{
+  0%{transform:translate(-66vw,-56vh) rotate(2deg)}
+  40%{transform:translate(-14vw,-11vh) rotate(-6deg)}
+  55%{transform:translate(-4vw,-.8vh) rotate(-4deg)}
+  62%{transform:translate(0,0) rotate(-1deg)}
+  70%{transform:translate(2vw,-.7vh) rotate(-2.5deg)}
+  78%{transform:translate(3.4vw,0) rotate(0deg)}
+  100%{transform:translate(5vw,0) rotate(0deg)}
+}
+.wh{transform-box:fill-box;transform-origin:50% 50%;animation:spinW .34s linear infinite}
+@keyframes spinW{to{transform:rotate(360deg)}}
+
+.puff2{position:absolute;bottom:14%;width:7vmin;height:7vmin;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.9),rgba(255,255,255,0) 68%);
+  opacity:0;animation:puff 1.5s ease-out forwards}
+@keyframes puff{0%{opacity:0;transform:scale(.3)}30%{opacity:.85}100%{opacity:0;transform:scale(2.5) translateX(-7vmin)}}
+.streaks{position:absolute;left:15%;bottom:14.5%;width:26vmin;height:3vmin;opacity:0;
+  animation:fadeIn .5s ease 4.1s forwards}
+.streaks i{position:absolute;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.6));
+  animation:streakMove .5s linear infinite}
+@keyframes fadeIn{to{opacity:1}}
+@keyframes streakMove{0%{transform:translateX(0);opacity:1}100%{transform:translateX(-18vmin);opacity:0}}
+
+/* ============================================================
+   SCENE 3 — 大阪街景
+   ============================================================ */
+.s3{background:linear-gradient(180deg,#160e2e 0%,#33184a 28%,#6c2a54 50%,#b3494f 65%,#e07a4e 74%,#0e1526 74.1%,#080d18 100%);}
+.city{position:absolute;left:0;right:0;bottom:26%;height:26%;
+  background:repeating-linear-gradient(90deg,#111a2e 0 3.6vmin,transparent 3.6vmin 5.2vmin);
+  -webkit-mask-image:linear-gradient(180deg,#000 60%,transparent);
+  mask-image:linear-gradient(180deg,#000 60%,transparent);opacity:.9}
+.cityWin{position:absolute;width:.7vmin;height:.7vmin;background:#ffd98a;opacity:.5;animation:blink 3s ease-in-out infinite}
+
+.river{position:absolute;left:0;right:0;bottom:0;height:26%;
+  background:linear-gradient(180deg,#12203c,#0a1425);overflow:hidden}
+.river::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.06) 0 2px,transparent 2px 9px);
+  animation:ripple 5s linear infinite}
+@keyframes ripple{to{transform:translateY(9px)}}
+.glow{position:absolute;bottom:0;width:6vmin;height:24%;filter:blur(1.2vmin);opacity:.55;
+  animation:shimmer 3.4s ease-in-out infinite}
+@keyframes shimmer{0%,100%{opacity:.32;transform:scaleY(.86)}50%{opacity:.7;transform:scaleY(1.06)}}
+
+.castle{position:absolute;left:3%;bottom:26%;width:34vmin;max-width:250px;
+  animation:riseUp 1.4s cubic-bezier(.2,.9,.3,1) .3s both}
+.tsuten{position:absolute;right:5%;bottom:26%;width:20vmin;max-width:140px;
+  animation:riseUp 1.4s cubic-bezier(.2,.9,.3,1) .55s both}
+@keyframes riseUp{from{opacity:0;transform:translateY(7vmin)}to{opacity:1;transform:none}}
+
+.ferris{position:absolute;left:39%;bottom:40%;width:20vmin;max-width:140px;opacity:0;
+  animation:rise 1s ease .8s forwards}
+.wheelG{transform-origin:60px 60px;animation:spin 16s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.crab{position:absolute;right:2%;bottom:55%;width:29vmin;max-width:210px;opacity:0;
+  animation:popIn .9s cubic-bezier(.2,1.5,.4,1) 1.15s forwards;filter:drop-shadow(0 0 2.4vmin rgba(226,72,59,.6))}
+.claw-l{transform-origin:64px 66px;animation:clawL 1.5s ease-in-out infinite}
+.claw-r{transform-origin:196px 66px;animation:clawR 1.5s ease-in-out infinite}
+@keyframes clawL{0%,100%{transform:rotate(0)}50%{transform:rotate(-17deg)}}
+@keyframes clawR{0%,100%{transform:rotate(0)}50%{transform:rotate(17deg)}}
+.legs g{animation:legWig 1.1s ease-in-out infinite}
+.legs g:nth-child(2){animation-delay:.12s}
+.legs g:nth-child(3){animation-delay:.24s}
+.legs g:nth-child(4){animation-delay:.36s}
+.legs g:nth-child(5){animation-delay:.48s}
+.legs g:nth-child(6){animation-delay:.6s}
+@keyframes legWig{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+.runsign{position:absolute;left:5%;bottom:51%;width:21vmin;max-width:145px;opacity:0;
+  animation:popIn .9s cubic-bezier(.2,1.5,.4,1) 1.45s forwards}
+.pole{position:absolute;width:1vmin;max-width:7px;border-radius:2px;
+  background:linear-gradient(180deg,#39415a,#10182a);opacity:0;
+  animation:rise .8s ease 1.25s forwards}
+.runner{animation:jog .6s ease-in-out infinite}
+@keyframes jog{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes popIn{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+
+.lantern{position:absolute;width:5.4vmin;transform-origin:50% 0;animation:swing 3.2s ease-in-out infinite}
+@keyframes swing{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+
+.neonTxt{position:absolute;font-family:var(--mincho);font-weight:800;color:#ffe3a3;
+  text-shadow:0 0 1vmin #ffb347,0 0 3vmin #ff7a3d,0 0 6vmin rgba(255,122,61,.6);
+  animation:flicker 4s linear infinite}
+@keyframes flicker{0%,96%,100%{opacity:1}97%{opacity:.35}98%{opacity:.9}99%{opacity:.5}}
+
+/* ============================================================
+   SCENE 4 — 食い倒れ
+   ============================================================ */
+.s4{background:
+  radial-gradient(90% 70% at 50% 0%,#fff6e2,#f6e6c8 60%,#eed9b4 100%);
+  color:#4a3826}
+.asanoha{position:absolute;inset:0;opacity:.16;
+  background-image:
+    repeating-linear-gradient(60deg,rgba(190,140,90,.55) 0 1px,transparent 1px 7vmin),
+    repeating-linear-gradient(-60deg,rgba(190,140,90,.55) 0 1px,transparent 1px 7vmin),
+    repeating-linear-gradient(0deg,rgba(190,140,90,.4) 0 1px,transparent 1px 7vmin);}
+.foodwrap{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;
+  gap:1.2vmin 2vmin;padding:20% 5% 16%}
+.food{width:26vmin;max-width:150px;text-align:center;opacity:0;
+  animation:popIn .75s cubic-bezier(.2,1.6,.4,1) forwards}
+.food svg{width:100%;display:block;animation:floaty 3.4s ease-in-out infinite}
+.food b{display:block;font-family:var(--maru);font-weight:700;font-size:clamp(11px,2.2vmin,15px);
+  letter-spacing:.06em;color:#7a5b38;margin-top:.2em}
+.food i{display:block;font-style:normal;font-size:clamp(9px,1.7vmin,12px);color:#a98a63;letter-spacing:.1em}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.1vmin)}}
+.food:nth-child(1){animation-delay:.30s}.food:nth-child(1) svg{animation-delay:.0s}
+.food:nth-child(2){animation-delay:.45s}.food:nth-child(2) svg{animation-delay:.3s}
+.food:nth-child(3){animation-delay:.60s}.food:nth-child(3) svg{animation-delay:.6s}
+.food:nth-child(4){animation-delay:.75s}.food:nth-child(4) svg{animation-delay:.9s}
+.food:nth-child(5){animation-delay:.90s}.food:nth-child(5) svg{animation-delay:1.2s}
+.food:nth-child(6){animation-delay:1.05s}.food:nth-child(6) svg{animation-delay:1.5s}
+.s4 .cap .jp{color:#8b2f28;text-shadow:none}
+.s4 .cap .zh{color:#7a5b38}
+.steam{transform-origin:center;animation:steamUp 2.4s ease-in-out infinite}
+@keyframes steamUp{0%{opacity:0;transform:translateY(4px) scaleX(.8)}30%{opacity:.65}100%{opacity:0;transform:translateY(-16px) scaleX(1.25)}}
+.flake{animation:flake 1s ease-in-out infinite;transform-origin:center}
+@keyframes flake{0%,100%{transform:rotate(-8deg) translateY(0)}50%{transform:rotate(8deg) translateY(-2px)}}
+
+/* ============================================================
+   SCENE 5 — テーマパーク
+   ============================================================ */
+.s5{background:radial-gradient(110% 80% at 50% 78%,#20406e 0%,#0d1a33 55%,#060c18 100%)}
+.beam{position:absolute;bottom:0;left:50%;width:14vmin;height:110vh;
+  background:linear-gradient(0deg,rgba(140,200,255,.30),rgba(140,200,255,0) 72%);
+  transform-origin:50% 100%;filter:blur(.7vmin)}
+.b1{animation:sweep 6s ease-in-out infinite}
+.b2{animation:sweep 6s ease-in-out .9s infinite reverse}
+.b3{animation:sweep 7.4s ease-in-out .4s infinite}
+@keyframes sweep{0%,100%{transform:translateX(-50%) rotate(-34deg)}50%{transform:translateX(-50%) rotate(34deg)}}
+
+.globe{position:absolute;left:50%;top:24%;width:42vmin;max-width:300px;transform:translate(-50%,0);opacity:0;
+  animation:riseC 1.2s ease .3s forwards}
+.sheen{animation:sheenSweep 4.6s ease-in-out infinite}
+@keyframes sheenSweep{0%{transform:translateX(-85px);opacity:0}25%{opacity:.55}55%{opacity:.5}100%{transform:translateX(85px);opacity:0}}
+.bunting{position:absolute;top:22.5%;left:-2%;right:-2%;opacity:0;animation:rise 1s ease .5s forwards}
+.bunting svg{width:100%;display:block}
+.flagwave{animation:flagW 3.8s ease-in-out infinite}
+@keyframes flagW{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+.castle5{position:absolute;left:3%;bottom:7%;width:26vmin;max-width:185px;opacity:0;animation:rise 1.1s ease .8s forwards}
+.castle5 svg,.palm svg{width:100%;display:block}
+.palm{position:absolute;bottom:5%;width:17vmin;max-width:120px;transform-origin:50% 100%;opacity:.95;
+  animation:palmSway 5.5s ease-in-out infinite}
+.palm.pl{left:1%}
+.palm.pr{right:1%;animation-delay:1.4s}
+@keyframes palmSway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2.4deg)}}
+.wjet{transform-box:fill-box;transform-origin:50% 100%;animation:jet 2.4s ease-in-out infinite}
+@keyframes jet{0%,100%{opacity:.3;transform:scaleY(.88)}50%{opacity:.85;transform:scaleY(1.05)}}
+.conti{animation:contiShift 9s ease-in-out infinite alternate}
+@keyframes contiShift{from{transform:translateX(-9px)}to{transform:translateX(9px)}}
+.twk{transform-box:fill-box;transform-origin:center;animation:twinkle 2.8s ease-in-out infinite}
+
+.carousel{position:absolute;left:50%;bottom:4%;width:50vmin;max-width:360px;transform:translate(-50%,0);
+  opacity:0;animation:riseC 1.1s ease .9s forwards}
+.carousel svg{width:100%;display:block}
+.horse{animation:horseBob 2.4s ease-in-out infinite}
+@keyframes horseBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.fw{position:absolute;width:0;height:0}
+.spark{position:absolute;left:0;top:0;width:.9vmin;height:.9vmin;border-radius:50%;
+  transform:rotate(var(--a)) translateY(0);animation:burst 1.9s ease-out infinite}
+@keyframes burst{
+  0%{transform:rotate(var(--a)) translateY(0) scale(.4);opacity:0}
+  12%{opacity:1;transform:rotate(var(--a)) translateY(-1vmin) scale(1)}
+  100%{transform:rotate(var(--a)) translateY(-11vmin) scale(.15);opacity:0}
+}
+
+/* ============================================================
+   SCENE 6 — キャラクターのごあいさつ
+   ============================================================ */
+.s6{background:linear-gradient(180deg,#fff5f6 0%,#ffe8ec 46%,#ffd9e2 100%);color:#7a4453}
+.s6 .cap .jp{color:#c04a63;text-shadow:none}
+.s6 .cap .zh{color:#96606f}
+.chars{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;
+  gap:1vmin 1.6vmin;padding:22% 3% 15%}
+.ch{width:24vmin;max-width:140px;position:relative;opacity:0;
+  animation:hop .8s cubic-bezier(.2,1.5,.35,1) forwards}
+@keyframes hop{0%{opacity:0;transform:translateY(6vmin) scale(.7)}100%{opacity:1;transform:none}}
+.ch svg{width:100%;display:block;animation:bob 2.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1vmin)}}
+.arm{animation:wave 1s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(24deg)}}
+.bub{position:absolute;top:-1.5vmin;left:50%;z-index:6;transform:translateX(-50%);
+  background:#fff;color:#a04a5f;border:2px solid #f3c3cf;border-radius:999px;
+  font-family:var(--maru);font-weight:700;white-space:nowrap;
+  font-size:clamp(9px,1.85vmin,13px);padding:.32em .78em;
+  box-shadow:0 3px 0 rgba(200,140,160,.22);opacity:0;
+  animation:bubIn .6s cubic-bezier(.2,1.5,.4,1) forwards}
+.ch:nth-child(2n) .bub{top:-6.5vmin}
+.bub::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-5px;
+  border:5px solid transparent;border-top-color:#fff;filter:drop-shadow(0 2px 0 #f3c3cf)}
+.ch:nth-child(1){animation-delay:.30s}.ch:nth-child(1) .bub{animation-delay:.75s}.ch:nth-child(1) svg{animation-delay:0s}
+.ch:nth-child(2){animation-delay:.48s}.ch:nth-child(2) .bub{animation-delay:.95s}.ch:nth-child(2) svg{animation-delay:.2s}
+.ch:nth-child(3){animation-delay:.66s}.ch:nth-child(3) .bub{animation-delay:1.15s}.ch:nth-child(3) svg{animation-delay:.4s}
+.ch:nth-child(4){animation-delay:.84s}.ch:nth-child(4) .bub{animation-delay:1.35s}.ch:nth-child(4) svg{animation-delay:.6s}
+.ch:nth-child(5){animation-delay:1.02s}.ch:nth-child(5) .bub{animation-delay:1.55s}.ch:nth-child(5) svg{animation-delay:.8s}
+.ch:nth-child(6){animation-delay:1.20s}.ch:nth-child(6) .bub{animation-delay:1.75s}.ch:nth-child(6) svg{animation-delay:1s}
+
+/* ============================================================
+   SCENE 6b — おもいで（拍立得合照）
+   ============================================================ */
+.s6b{background:linear-gradient(180deg,#fff8ef 0%,#ffeadd 55%,#ffdccc 100%);color:#7a5a48}
+.s6b .cap .jp{color:#b06a45;text-shadow:none}
+.s6b .cap .zh{color:#96705a}
+.polawrap{position:absolute;inset:0;display:grid;place-items:center;padding:17% 6% 11%}
+.pola{position:relative;width:min(74vmin,430px);background:#fff;padding:3.5% 3.5% 13%;border-radius:6px;
+  box-shadow:0 1.6vmin 5vmin rgba(120,70,60,.35);opacity:0;
+  animation:polaIn 1.1s cubic-bezier(.2,1.3,.4,1) .4s forwards,polaSway 5.5s ease-in-out 1.6s infinite}
+@keyframes polaIn{from{opacity:0;transform:rotate(-8deg) translateY(7vmin) scale(.88)}to{opacity:1;transform:rotate(-3deg)}}
+@keyframes polaSway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(-1.4deg)}}
+.photobox{position:relative;width:100%;aspect-ratio:14/15;border-radius:3px;overflow:hidden;
+  background:#faf3e8;cursor:pointer}
+.photobox img{width:100%;height:100%;object-fit:cover;border-radius:3px;display:none;
+  animation:develop 2.4s ease .5s both}
+@keyframes develop{from{filter:brightness(2.1) saturate(.25)}to{filter:brightness(1) saturate(1.06)}}
+.photoempty{position:absolute;inset:0;display:grid;place-items:center;
+  border:2px dashed #e0c4a8;border-radius:3px}
+.photoempty .pe{text-align:center;color:#b08a66;font-family:var(--maru);font-weight:700;
+  font-size:clamp(11px,2.4vmin,15px);letter-spacing:.1em;line-height:1.9}
+.photoempty svg{width:10vmin;max-width:70px;margin:0 auto 1.2vmin;display:block}
+.pola .tape{position:absolute;top:-2.2vmin;left:50%;width:16vmin;max-width:110px;height:4.4vmin;max-height:30px;
+  transform:translateX(-50%) rotate(2deg);border-radius:2px;
+  background:repeating-linear-gradient(45deg,rgba(242,150,170,.75) 0 8px,rgba(250,190,205,.75) 8px 16px);
+  box-shadow:0 2px 6px rgba(120,70,60,.2)}
+.pola .note{position:absolute;left:0;right:0;bottom:3%;text-align:center;
+  font-family:var(--maru);font-weight:700;color:#a5715a;font-size:clamp(13px,3vmin,20px);letter-spacing:.2em}
+
+/* ============================================================
+   SCENE 7 — おわり
+   ============================================================ */
+.s7{background:linear-gradient(180deg,#ffe9d2 0%,#ffd9d6 40%,#f9c2cf 70%,#e79ab2 100%);color:#7a3b4c}
+.seigaiha{position:absolute;left:0;right:0;bottom:0;height:34%;opacity:.35;
+  background-image:radial-gradient(circle at 50% 100%,transparent 34%,rgba(255,255,255,.9) 35%,rgba(255,255,255,.9) 39%,transparent 40%);
+  background-size:9vmin 4.5vmin;background-repeat:repeat}
+.torii{position:absolute;left:50%;bottom:11%;width:54vmin;max-width:400px;transform:translate(-50%,0);opacity:0;
+  animation:riseC 1.3s ease .2s forwards}
+.petals span{position:absolute;top:-6vmin;border-radius:60% 5% 60% 5%;background:var(--sakura);
+  opacity:.9;animation:fall linear infinite}
+@keyframes fall{
+  0%{transform:translateY(-8vh) rotate(0) translateX(0);opacity:0}
+  8%{opacity:.95}
+  100%{transform:translateY(112vh) rotate(560deg) translateX(14vmin);opacity:.15}
+}
+.s7 .cap .jp{color:#b53a55;text-shadow:0 2px 14px rgba(255,255,255,.7)}
+.s7 .cap .zh{color:#8b4a5c}
+.heart{display:inline-block;color:#e05572;animation:beat 1.15s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}25%{transform:scale(1.22)}40%{transform:scale(1)}}
+.finalMsg{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);z-index:40;text-align:center;padding:0 8vw}
+.finalMsg .big{font-family:var(--mincho);font-weight:800;font-size:clamp(28px,7.4vmin,62px);
+  color:#b53a55;letter-spacing:.14em;opacity:0;animation:rise 1.2s ease .5s forwards;
+  text-shadow:0 3px 18px rgba(255,255,255,.75)}
+.finalMsg .sub{font-family:var(--maru);font-weight:700;font-size:clamp(13px,3vmin,21px);
+  line-height:2;color:#8b4a5c;margin-top:1.1em;opacity:0;animation:rise 1.2s ease 1.2s forwards}
+.replay{margin-top:2em;opacity:0;animation:rise 1s ease 2.2s forwards;pointer-events:auto}
+.replay button{
+  font-family:var(--maru);font-weight:700;font-size:clamp(12px,2.4vmin,16px);letter-spacing:.14em;
+  color:#fff;background:linear-gradient(180deg,#e2596f,#c8384f);
+  border:none;border-radius:999px;padding:.85em 2.2em;cursor:pointer;
+  box-shadow:0 4px 0 #a52b40,0 10px 24px rgba(180,60,85,.32);transition:transform .15s}
+.replay button:active{transform:translateY(3px);box-shadow:0 1px 0 #a52b40}
+
+/* ============================================================
+   INTRO / CHROME
+   ============================================================ */
+#intro{position:absolute;inset:0;z-index:90;display:grid;place-items:center;
+  background:radial-gradient(90% 70% at 50% 40%,#17325c,#070f1e 75%);
+  transition:opacity .7s ease,visibility .7s}
+#intro.gone{opacity:0;visibility:hidden}
+.card{text-align:center;padding:12vmin 8vmin;position:relative}
+.card::before,.card::after{content:"";position:absolute;width:9vmin;height:9vmin;border:2px solid rgba(224,182,74,.55)}
+.card::before{top:0;left:0;border-right:none;border-bottom:none}
+.card::after{bottom:0;right:0;border-left:none;border-top:none}
+.card .k{font-family:var(--mincho);font-weight:800;color:var(--kin);letter-spacing:.3em;
+  font-size:clamp(11px,2.3vmin,15px);opacity:.85}
+.card h1{font-family:var(--mincho);font-weight:800;color:#fff;letter-spacing:.14em;
+  font-size:clamp(30px,8.4vmin,68px);margin:.35em 0 .1em;line-height:1.25}
+.card p{font-family:var(--maru);font-weight:500;color:#c9d6ea;letter-spacing:.14em;
+  font-size:clamp(12px,2.6vmin,17px);line-height:1.9}
+.card .go{margin-top:3em}
+.card .go button{font-family:var(--maru);font-weight:700;letter-spacing:.2em;
+  font-size:clamp(12px,2.5vmin,16px);color:#2a1608;
+  background:linear-gradient(180deg,#f3d081,#d8a844);
+  border:none;border-radius:999px;padding:.95em 2.6em;cursor:pointer;
+  box-shadow:0 4px 0 #a97e28,0 12px 30px rgba(0,0,0,.4);transition:transform .15s;
+  animation:breathe 2.6s ease-in-out infinite}
+.card .go button:active{transform:translateY(3px)}
+@keyframes breathe{0%,100%{box-shadow:0 4px 0 #a97e28,0 10px 24px rgba(0,0,0,.4)}50%{box-shadow:0 4px 0 #a97e28,0 14px 40px rgba(240,200,120,.35)}}
+.card .hint{margin-top:1.6em;font-size:clamp(10px,2vmin,13px);color:#7f8fa8;letter-spacing:.1em}
+
+#bar{position:absolute;top:0;left:0;height:3px;width:0;z-index:80;
+  background:linear-gradient(90deg,var(--kin),#f6e2a8);box-shadow:0 0 10px rgba(224,182,74,.7);
+  transition:width .35s linear}
+#dots{position:absolute;bottom:2.6vmin;left:0;right:0;z-index:80;display:flex;justify-content:center;gap:1.1vmin;pointer-events:none}
+#dots i{width:1.05vmin;height:1.05vmin;min-width:6px;min-height:6px;border-radius:50%;
+  background:rgba(255,255,255,.32);transition:all .35s}
+#dots i.act{background:var(--kin);transform:scale(1.5)}
+#skip{position:absolute;top:2.4vmin;right:2.6vmin;z-index:80;
+  font-family:var(--maru);font-size:clamp(10px,2vmin,13px);letter-spacing:.12em;
+  color:rgba(255,255,255,.62);background:rgba(0,0,0,.25);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:.5em 1.1em;cursor:pointer;
+  opacity:0;transition:opacity .4s}
+#skip.show{opacity:1}
+#vig{position:absolute;inset:0;z-index:70;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 50%,transparent 55%,rgba(0,0,0,.35))}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;animation-iteration-count:1 !important}
+}
 </style>
 </head>
 <body>
-<div id="aurora"></div>
-<canvas id="cv"></canvas>
+<div id="app">
 
-<svg id="gesture" width="76" height="34" viewBox="0 0 76 34" fill="none">
-  <path d="M14 17 Q38 2 62 17" stroke="#bfeee0" stroke-width="2" stroke-linecap="round"/>
-  <path d="M14 17 l7 -8 M14 17 l10 2" stroke="#bfeee0" stroke-width="2" stroke-linecap="round"/>
-  <path d="M62 17 l-7 -8 M62 17 l-10 2" stroke="#bfeee0" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="38" cy="24" r="5" stroke="#bfeee0" stroke-width="2"/>
-</svg>
+<!-- ══════════════ SCENE 1 : 夜空 ══════════════ -->
+<section class="scene s1">
+  <div class="stars" id="stars"></div>
+  <div class="moon"></div>
+  <div class="shoot"></div>
+  <div class="cityglow"></div>
+  <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+  <div class="trail"></div>
+  <div class="plane1">
+    <svg viewBox="0 0 210 96" aria-hidden="true">
+      <path d="M30 44 L14 8 L30 8 L58 40 Z" fill="#d2384a"/>
+      <path d="M24 54 C24 46 46 40 80 38 L160 34 C186 33 202 40 202 48 C202 55 186 61 160 61 L70 63 C40 63 24 60 24 54 Z" fill="#fbf8f2"/>
+      <path d="M24 54 C24 51 46 50 80 49 L200 46 C201 47 202 47 202 48 C202 55 186 61 160 61 L70 63 C40 63 24 60 24 54 Z" fill="#e6e1d6"/>
+      <rect x="60" y="49" width="140" height="4" rx="2" fill="#d2384a" opacity=".85"/>
+      <path d="M96 46 L74 84 L96 84 L134 50 Z" fill="#e8e3d8"/>
+      <path d="M100 46 L120 22 L132 22 L124 46 Z" fill="#efeade"/>
+      <rect x="104" y="52" width="26" height="11" rx="5.5" fill="#9aa3b2"/>
+      <circle cx="108" cy="57.5" r="3.6" fill="#4d5666"/>
+      <g fill="#8fa6c4"><circle cx="70" cy="47" r="2.1"/><circle cx="82" cy="46.5" r="2.1"/><circle cx="94" cy="46" r="2.1"/><circle cx="150" cy="44" r="2.1"/><circle cx="162" cy="43.5" r="2.1"/><circle cx="174" cy="43" r="2.1"/></g>
+      <path d="M182 40 C190 40 196 43 197 45 L186 45 Z" fill="#c2d3e8"/>
+      <circle cx="41" cy="24" r="7" fill="#fbf8f2"/>
+      <circle cx="41" cy="24" r="3.4" fill="#d2384a"/>
+    </svg>
+  </div>
+  <div class="cap bottom">
+    <p class="jp">いってらっしゃい</p>
+    <p class="zh">出發囉 —— 飛往大阪的路上</p>
+    <div class="rule"></div>
+  </div>
+</section>
 
-<div id="caption"></div>
+<!-- ══════════════ SCENE 2 : 着陸 ══════════════ -->
+<section class="scene s2">
+  <div class="sun2"></div>
+  <div class="gull g1"><svg viewBox="0 0 28 10" aria-hidden="true"><path d="M1 8 Q7 1 14 7 Q21 1 27 8" stroke="#3a2b52" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+  <div class="gull g2"><svg viewBox="0 0 28 10" aria-hidden="true"><path d="M1 8 Q7 1 14 7 Q21 1 27 8" stroke="#3a2b52" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+  <div class="sea"></div>
 
-<div id="dots">
-  <div class="dot" id="d0"></div>
-  <div class="dot" id="d1"></div>
-  <div class="dot" id="d2"></div>
+  <!-- 関空ターミナルの剪影（波浪屋根＋管制塔） -->
+  <div class="terminal">
+    <svg viewBox="0 0 900 130" aria-hidden="true">
+      <rect x="0" y="96" width="900" height="34" fill="#241f45"/>
+      <path d="M40 96 L40 78 Q90 58 160 56 Q300 40 440 52 Q560 60 620 74 L620 96 Z" fill="#241f45"/>
+      <path d="M40 78 Q90 58 160 56 Q300 40 440 52 Q560 60 620 74" stroke="#4a3f78" stroke-width="2.5" fill="none"/>
+      <g fill="#ffcf8a" opacity=".72">
+        <rect x="56" y="82" width="16" height="5" rx="2"/><rect x="100" y="80" width="16" height="5" rx="2"/>
+        <rect x="144" y="78" width="16" height="5" rx="2"/><rect x="188" y="76" width="16" height="5" rx="2"/>
+        <rect x="232" y="74" width="16" height="5" rx="2"/><rect x="276" y="73" width="16" height="5" rx="2"/>
+        <rect x="320" y="72" width="16" height="5" rx="2"/><rect x="364" y="72" width="16" height="5" rx="2"/>
+        <rect x="408" y="73" width="16" height="5" rx="2"/><rect x="452" y="75" width="16" height="5" rx="2"/>
+        <rect x="496" y="77" width="16" height="5" rx="2"/><rect x="540" y="80" width="16" height="5" rx="2"/>
+        <rect x="584" y="84" width="16" height="5" rx="2"/>
+      </g>
+      <!-- 停機的飛機尾翼 -->
+      <g fill="#241f45">
+        <ellipse cx="654" cy="93" rx="26" ry="7"/>
+        <path d="M648 92 L658 64 L666 64 L660 92 Z"/>
+      </g>
+      <!-- 管制塔 -->
+      <g>
+        <rect x="690" y="42" width="16" height="54" fill="#241f45"/>
+        <rect x="672" y="24" width="52" height="20" rx="5" fill="#241f45"/>
+        <rect x="678" y="29" width="40" height="6" rx="3" fill="#ffcf8a" opacity=".8"/>
+        <path d="M698 24 V8" stroke="#241f45" stroke-width="3"/>
+        <circle class="beacon" cx="698" cy="6" r="4" fill="#ff5a5a"/>
+      </g>
+      <!-- 右側小航廈 -->
+      <path d="M730 96 L730 74 L760 66 L900 66 L900 96 Z" fill="#241f45"/>
+      <g fill="#ffcf8a" opacity=".7">
+        <rect x="748" y="78" width="14" height="5" rx="2"/><rect x="790" y="78" width="14" height="5" rx="2"/>
+        <rect x="832" y="78" width="14" height="5" rx="2"/><rect x="870" y="78" width="14" height="5" rx="2"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="runwayS"></div>
+  <div class="lightrow hi"></div>
+  <div class="dashline"></div>
+  <div class="lightrow lo"></div>
+
+  <!-- 滑行經過的機場看板 -->
+  <div class="apSign">
+    <svg viewBox="0 0 300 170" aria-hidden="true">
+      <rect x="60" y="90" width="8" height="72" rx="2" fill="#5b6473"/>
+      <rect x="232" y="90" width="8" height="72" rx="2" fill="#5b6473"/>
+      <rect x="14" y="14" width="272" height="84" rx="10" fill="#17714d" stroke="#f0f4ef" stroke-width="4"/>
+      <text x="150" y="55" text-anchor="middle" font-family="'Zen Maru Gothic','Hiragino Sans','Meiryo','Microsoft JhengHei',sans-serif" font-weight="700" font-size="27" fill="#ffffff" letter-spacing="3">関西国際空港</text>
+      <text x="150" y="82" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="#cfe8dc" letter-spacing="2">KANSAI INT'L AIRPORT</text>
+    </svg>
+  </div>
+
+  <div class="streaks">
+    <i style="top:0;width:16vmin;left:0"></i>
+    <i style="top:1.4vmin;width:11vmin;left:3vmin;animation-delay:.18s"></i>
+  </div>
+
+  <div class="plane2b">
+    <svg viewBox="0 0 210 100" aria-hidden="true">
+      <path d="M30 44 L14 8 L30 8 L58 40 Z" fill="#d2384a"/>
+      <path d="M24 54 C24 46 46 40 80 38 L160 34 C186 33 202 40 202 48 C202 55 186 61 160 61 L70 63 C40 63 24 60 24 54 Z" fill="#fbf8f2"/>
+      <path d="M24 54 C24 51 46 50 80 49 L200 46 C201 47 202 47 202 48 C202 55 186 61 160 61 L70 63 C40 63 24 60 24 54 Z" fill="#e6e1d6"/>
+      <rect x="60" y="49" width="140" height="4" rx="2" fill="#d2384a" opacity=".85"/>
+      <path d="M96 46 L74 84 L96 84 L134 50 Z" fill="#e8e3d8"/>
+      <path d="M100 46 L120 22 L132 22 L124 46 Z" fill="#efeade"/>
+      <rect x="104" y="52" width="26" height="11" rx="5.5" fill="#9aa3b2"/>
+      <g fill="#8fa6c4"><circle cx="70" cy="47" r="2.1"/><circle cx="82" cy="46.5" r="2.1"/><circle cx="94" cy="46" r="2.1"/><circle cx="150" cy="44" r="2.1"/><circle cx="162" cy="43.5" r="2.1"/><circle cx="174" cy="43" r="2.1"/></g>
+      <!-- 起落架 -->
+      <path d="M119 60 L119 82" stroke="#6a7383" stroke-width="4"/>
+      <path d="M176 58 L176 80" stroke="#6a7383" stroke-width="3.4"/>
+      <g class="wh"><circle cx="112" cy="86" r="7.2" fill="#232c3a"/><circle cx="112" cy="86" r="2.2" fill="#95a1b3"/><rect x="110.9" y="79.6" width="2.2" height="5" rx="1" fill="#95a1b3"/></g>
+      <g class="wh"><circle cx="127" cy="86" r="7.2" fill="#232c3a"/><circle cx="127" cy="86" r="2.2" fill="#95a1b3"/><rect x="125.9" y="79.6" width="2.2" height="5" rx="1" fill="#95a1b3"/></g>
+      <g class="wh"><circle cx="176" cy="84" r="5.6" fill="#232c3a"/><circle cx="176" cy="84" r="1.8" fill="#95a1b3"/><rect x="175.1" y="78.8" width="1.8" height="4" rx="1" fill="#95a1b3"/></g>
+      <circle cx="41" cy="24" r="7" fill="#fbf8f2"/><circle cx="41" cy="24" r="3.4" fill="#d2384a"/>
+      <circle cx="200" cy="46" r="2.4" fill="#ffe08a"/>
+    </svg>
+  </div>
+
+  <div class="puff2" style="left:33%;animation-delay:3.6s"></div>
+  <div class="puff2" style="left:37%;animation-delay:3.78s"></div>
+  <div class="puff2" style="left:30%;animation-delay:4s"></div>
+
+  <div class="cap top">
+    <p class="jp">ついたよ、大阪！</p>
+    <p class="zh">平安落地　接下來每一站都是開心</p>
+    <div class="rule"></div>
+  </div>
+</section>
+
+<!-- ══════════════ SCENE 3 : 大阪街景 ══════════════ -->
+<section class="scene s3">
+  <div class="city"></div>
+  <div id="cityWins"></div>
+  <div class="river"></div>
+
+  <!-- 大阪城 -->
+  <div class="castle">
+    <svg viewBox="0 0 200 290" aria-hidden="true">
+      <defs>
+        <path id="ro" d="M-92 0 Q0 -46 92 0 Q44 -15 0 -15 Q-44 -15 -92 0 Z"/>
+      </defs>
+      <path d="M6 290 L26 236 L174 236 L194 290 Z" fill="#4a5364"/>
+      <path d="M6 290 L26 236 L100 236 L100 290 Z" fill="#576174"/>
+      <g stroke="#3b4352" stroke-width="1" opacity=".5">
+        <path d="M20 252 H180 M16 268 H184 M12 284 H188"/>
+      </g>
+      <rect x="34" y="200" width="132" height="40" fill="#f6f1e4"/>
+      <rect x="34" y="200" width="132" height="6" fill="#e0b64a"/>
+      <g fill="#2b3a4a"><rect x="46" y="212" width="14" height="18" rx="2"/><rect x="70" y="212" width="14" height="18" rx="2"/><rect x="94" y="212" width="14" height="18" rx="2"/><rect x="118" y="212" width="14" height="18" rx="2"/><rect x="142" y="212" width="14" height="18" rx="2"/></g>
+      <use href="#ro" transform="translate(100,202)" fill="#2e5468"/>
+      <use href="#ro" transform="translate(100,202) scale(1,.4)" fill="#3d6a82" opacity=".55"/>
+      <rect x="52" y="166" width="96" height="36" fill="#f6f1e4"/>
+      <rect x="52" y="166" width="96" height="5" fill="#e0b64a"/>
+      <g fill="#2b3a4a"><rect x="64" y="177" width="12" height="16" rx="2"/><rect x="86" y="177" width="12" height="16" rx="2"/><rect x="108" y="177" width="12" height="16" rx="2"/><rect x="130" y="177" width="12" height="16" rx="2"/></g>
+      <use href="#ro" transform="translate(100,168) scale(.79)" fill="#2e5468"/>
+      <rect x="66" y="136" width="68" height="32" fill="#f6f1e4"/>
+      <rect x="66" y="136" width="68" height="5" fill="#e0b64a"/>
+      <g fill="#2b3a4a"><rect x="76" y="146" width="11" height="15" rx="2"/><rect x="94" y="146" width="11" height="15" rx="2"/><rect x="112" y="146" width="11" height="15" rx="2"/></g>
+      <use href="#ro" transform="translate(100,138) scale(.6)" fill="#2e5468"/>
+      <rect x="78" y="110" width="44" height="28" fill="#f6f1e4"/>
+      <rect x="78" y="110" width="44" height="4.5" fill="#e0b64a"/>
+      <g fill="#2b3a4a"><rect x="86" y="119" width="10" height="13" rx="2"/><rect x="104" y="119" width="10" height="13" rx="2"/></g>
+      <use href="#ro" transform="translate(100,112) scale(.45)" fill="#2e5468"/>
+      <g fill="#e0b64a">
+        <path d="M84 96 q-7 -3 -6 -11 q6 3 8 8 q3 -6 8 -6 q-4 6 -3 9 z"/>
+        <path d="M116 96 q7 -3 6 -11 q-6 3 -8 8 q-3 -6 -8 -6 q4 6 3 9 z"/>
+        <rect x="94" y="92" width="12" height="4" rx="2"/>
+      </g>
+      <g fill="#ffe9b0" opacity=".55">
+        <rect x="34" y="200" width="132" height="1.6"/><rect x="52" y="166" width="96" height="1.6"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 通天閣 -->
+  <div class="tsuten">
+    <svg viewBox="0 0 120 300" aria-hidden="true">
+      <path d="M8 300 L34 178 L86 178 L112 300 Z" fill="#1d2a3e"/>
+      <g stroke="#33455f" stroke-width="2.4" fill="none">
+        <path d="M14 276 H106 M20 248 H100 M26 220 H94 M31 196 H89"/>
+        <path d="M34 178 L86 300 M86 178 L34 300 M22 240 L60 300 M98 240 L60 300"/>
+      </g>
+      <rect x="30" y="164" width="60" height="16" rx="3" fill="#e2483b"/>
+      <rect x="24" y="152" width="72" height="14" rx="4" fill="#f0f0e6"/>
+      <rect x="34" y="120" width="52" height="34" fill="#243349"/>
+      <g stroke="#4a6386" stroke-width="1.8"><path d="M34 132 H86 M34 143 H86"/></g>
+      <rect x="28" y="108" width="64" height="14" rx="4" fill="#e2483b"/>
+      <rect x="22" y="96" width="76" height="13" rx="5" fill="#f4efe2"/>
+      <rect x="40" y="66" width="40" height="32" fill="#2b3c55"/>
+      <g stroke="#5a7699" stroke-width="1.6"><path d="M40 78 H80"/></g>
+      <rect x="34" y="56" width="52" height="12" rx="4" fill="#e0b64a"/>
+      <rect x="50" y="30" width="20" height="27" fill="#33455f"/>
+      <rect x="56" y="10" width="8" height="22" fill="#4a6386"/>
+      <circle cx="60" cy="8" r="7.5" fill="#ffd86b" class="tt-ball"/>
+      <circle cx="60" cy="8" r="13" fill="#ffd86b" opacity=".25"/>
+      <text x="60" y="140" text-anchor="middle" font-size="14" font-weight="700" fill="#ffd98a" font-family="serif">通</text>
+    </svg>
+  </div>
+
+  <!-- 観覧車 -->
+  <div class="ferris">
+    <svg viewBox="0 0 120 160" aria-hidden="true">
+      <path d="M60 118 L36 158 M60 118 L84 158" stroke="#8fa3bd" stroke-width="4" stroke-linecap="round"/>
+      <g class="wheelG" transform-origin="60 60">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#e2483b" stroke-width="3.6"/>
+        <circle cx="60" cy="60" r="34" fill="none" stroke="#e2483b" stroke-width="1.8" opacity=".6"/>
+        <g stroke="#e2483b" stroke-width="1.6" opacity=".75">
+          <path d="M60 10 V110 M10 60 H110 M25 25 L95 95 M95 25 L25 95"/>
+          <path d="M79 12 L41 108 M108 41 L12 79 M12 41 L108 79 M41 12 L79 108"/>
+        </g>
+        <g fill="#ffd86b" stroke="#c8102e" stroke-width="1">
+          <circle cx="60" cy="10" r="5"/><circle cx="95" cy="25" r="5"/><circle cx="110" cy="60" r="5"/>
+          <circle cx="95" cy="95" r="5"/><circle cx="60" cy="110" r="5"/><circle cx="25" cy="95" r="5"/>
+          <circle cx="10" cy="60" r="5"/><circle cx="25" cy="25" r="5"/>
+          <circle cx="79" cy="12" r="4"/><circle cx="108" cy="41" r="4"/><circle cx="108" cy="79" r="4"/>
+          <circle cx="79" cy="108" r="4"/><circle cx="41" cy="108" r="4"/><circle cx="12" cy="79" r="4"/>
+          <circle cx="12" cy="41" r="4"/><circle cx="41" cy="12" r="4"/>
+        </g>
+        <circle cx="60" cy="60" r="6" fill="#f4efe2"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="pole" style="right:7%;bottom:31%;height:26%"></div>
+  <div class="pole" style="right:21%;bottom:31%;height:26%;animation-delay:1.35s"></div>
+  <div class="pole" style="left:8%;bottom:31%;height:22%;animation-delay:1.55s"></div>
+  <div class="pole" style="left:17%;bottom:31%;height:22%;animation-delay:1.65s"></div>
+
+  <!-- かに看板 -->
+  <div class="crab">
+    <svg viewBox="0 0 260 150" aria-hidden="true">
+      <rect x="6" y="8" width="248" height="134" rx="10" fill="#12203c" stroke="#e0b64a" stroke-width="2.5"/>
+      <g class="legs" fill="#e2483b">
+        <g><path d="M92 96 q-24 8 -34 26" stroke="#e2483b" stroke-width="7" fill="none" stroke-linecap="round"/></g>
+        <g><path d="M104 100 q-18 14 -22 30" stroke="#e2483b" stroke-width="7" fill="none" stroke-linecap="round"/></g>
+        <g><path d="M118 102 q-8 16 -8 30" stroke="#e2483b" stroke-width="7" fill="none" stroke-linecap="round"/></g>
+        <g><path d="M142 102 q8 16 8 30" stroke="#e2483b" stroke-width="7" fill="none" stroke-linecap="round"/></g>
+        <g><path d="M156 100 q18 14 22 30" stroke="#e2483b" stroke-width="7" fill="none" stroke-linecap="round"/></g>
+        <g><path d="M168 96 q24 8 34 26" stroke="#e2483b" stroke-width="7" fill="none" stroke-linecap="round"/></g>
+      </g>
+      <g class="claw-l"><path d="M64 66 q-24 -8 -34 8 q-6 12 6 16 q10 3 16 -6" stroke="#e2483b" stroke-width="8" fill="none" stroke-linecap="round"/>
+        <path d="M26 68 q-12 -6 -16 4 q6 8 14 6" fill="#e2483b"/></g>
+      <g class="claw-r"><path d="M196 66 q24 -8 34 8 q6 12 -6 16 q-10 3 -16 -6" stroke="#e2483b" stroke-width="8" fill="none" stroke-linecap="round"/>
+        <path d="M234 68 q12 -6 16 4 q-6 8 -14 6" fill="#e2483b"/></g>
+      <ellipse cx="130" cy="82" rx="46" ry="30" fill="#e2483b"/>
+      <ellipse cx="130" cy="76" rx="46" ry="26" fill="#f05a49"/>
+      <path d="M96 66 q34 -14 68 0" stroke="#ffb0a0" stroke-width="3" fill="none" opacity=".7"/>
+      <g><rect x="116" y="46" width="5" height="16" rx="2.5" fill="#e2483b"/><rect x="139" y="46" width="5" height="16" rx="2.5" fill="#e2483b"/>
+         <circle cx="118.5" cy="44" r="6" fill="#fff"/><circle cx="141.5" cy="44" r="6" fill="#fff"/>
+         <circle cx="119.5" cy="45" r="3" fill="#1b1b1b"/><circle cx="142.5" cy="45" r="3" fill="#1b1b1b"/></g>
+      <path d="M118 86 q12 10 24 0" stroke="#8c1f18" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <text x="130" y="132" text-anchor="middle" font-family="serif" font-size="17" font-weight="700" fill="#ffe3a3" letter-spacing="4">道頓堀</text>
+    </svg>
+  </div>
+
+  <!-- 走る人 看板（雙手高舉衝線姿勢） -->
+  <div class="runsign">
+    <svg viewBox="0 0 160 190" aria-hidden="true">
+      <rect x="6" y="6" width="148" height="178" rx="14" fill="#0f2a4d" stroke="#e0b64a" stroke-width="2.5"/>
+      <rect x="16" y="16" width="128" height="158" rx="9" fill="#2453a8"/>
+      <rect x="16" y="88" width="128" height="44" fill="#3465bd" opacity=".55"/>
+      <g fill="#cfe0ff" opacity=".7">
+        <path d="M26 122 l4 -10 h4 l2 -8 h6 l2 8 h4 l4 10 Z"/>
+        <path d="M124 122 l4 -22 h4 l4 22 Z"/><rect x="124" y="96" width="10" height="4"/>
+        <circle cx="52" cy="112" r="8" fill="none" stroke="#cfe0ff" stroke-width="2"/><circle cx="52" cy="112" r="1.5"/>
+      </g>
+      <text x="80" y="42" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-style="italic" font-weight="800" font-size="25" letter-spacing="1" fill="#e8493c" stroke="#fff" stroke-width="4" paint-order="stroke">OSAKA</text>
+      <path d="M16 146 h128 v19 q0 9 -9 9 H25 q-9 0 -9 -9 Z" fill="#c8452e"/>
+      <g stroke="#f4efe2" stroke-width="2" opacity=".8"><path d="M16 154 H144 M16 164 H144"/></g>
+      <g class="runner">
+        <path d="M85 116 L100 130" stroke="#f2c9a0" stroke-width="9" stroke-linecap="round"/>
+        <path d="M100 130 L112 116" stroke="#f2c9a0" stroke-width="8" stroke-linecap="round"/>
+        <path d="M109 119 L114 113" stroke="#fdfdfb" stroke-width="8" stroke-linecap="round"/>
+        <path d="M112 115 Q121 106 127 108 Q125 117 116 119 Z" fill="#1d2a3e"/>
+        <path d="M75 116 L72 146" stroke="#f2c9a0" stroke-width="9" stroke-linecap="round"/>
+        <path d="M72 142 L72 149" stroke="#fdfdfb" stroke-width="8" stroke-linecap="round"/>
+        <path d="M59 157 Q59 150 67 150 L77 150 L77 159 Q66 161 59 157 Z" fill="#1d2a3e"/>
+        <path d="M68 102 H92 L94 118 L82 122 L80 117 L78 122 L66 118 Z" fill="#fdfdfb"/>
+        <path d="M69 104 L67 117" stroke="#e8493c" stroke-width="2.2"/>
+        <path d="M91 104 L93 117" stroke="#e8493c" stroke-width="2.2"/>
+        <path d="M67 74 Q80 70 93 74 L91 104 Q80 108 69 104 Z" fill="#fdfdfb"/>
+        <path d="M74 74 Q80 80 86 74" stroke="#e8493c" stroke-width="2.4" fill="none"/>
+        <path d="M70 78 L52 44" stroke="#f2c9a0" stroke-width="8" stroke-linecap="round"/>
+        <path d="M90 78 L108 44" stroke="#f2c9a0" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="50" cy="41" r="5" fill="#f2c9a0"/><circle cx="110" cy="41" r="5" fill="#f2c9a0"/>
+        <circle cx="80" cy="58" r="14" fill="#f2c9a0"/>
+        <path d="M66 56 C64 42 72 36 80 36 C88 36 96 42 94 56 C90 46 86 44 84 46 C80 42 72 44 70 50 C68 52 67 54 66 56 Z" fill="#241d18"/>
+        <path d="M66 56 L67 62 L70 59 Z M94 56 L93 62 L90 59 Z" fill="#241d18"/>
+        <path d="M72 56 q3 -3 6 0 M82 56 q3 -3 6 0" stroke="#241d18" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <path d="M71 62 Q80 72 89 62 Q80 67 71 62 Z" fill="#8c3328"/>
+        <path d="M74 63.5 Q80 66.5 86 63.5" stroke="#fff" stroke-width="2" fill="none"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="glow" style="left:12%;background:#e2483b"></div>
+  <div class="glow" style="left:38%;background:#ffd86b;animation-delay:.7s"></div>
+  <div class="glow" style="left:62%;background:#5fb0e8;animation-delay:1.3s"></div>
+  <div class="glow" style="left:82%;background:#f05a49;animation-delay:.4s"></div>
+
+  <div class="lantern" style="left:3%;top:15%">
+    <svg viewBox="0 0 60 96"><path d="M30 0 V12" stroke="#e0b64a" stroke-width="2"/><rect x="16" y="10" width="28" height="5" rx="2" fill="#3a2b22"/>
+      <ellipse cx="30" cy="48" rx="24" ry="32" fill="#e2483b"/>
+      <g stroke="#b93327" stroke-width="1.6" opacity=".8"><path d="M8 36 H52 M6 48 H54 M8 60 H52"/></g>
+      <rect x="16" y="76" width="28" height="6" rx="2" fill="#3a2b22"/>
+      <text x="30" y="56" text-anchor="middle" font-family="serif" font-size="20" fill="#ffe9c2">祭</text></svg>
+  </div>
+  <div class="lantern" style="right:2%;top:9%;animation-delay:.9s">
+    <svg viewBox="0 0 60 96"><path d="M30 0 V12" stroke="#e0b64a" stroke-width="2"/><rect x="16" y="10" width="28" height="5" rx="2" fill="#3a2b22"/>
+      <ellipse cx="30" cy="48" rx="24" ry="32" fill="#e2483b"/>
+      <g stroke="#b93327" stroke-width="1.6" opacity=".8"><path d="M8 36 H52 M6 48 H54 M8 60 H52"/></g>
+      <rect x="16" y="76" width="28" height="6" rx="2" fill="#3a2b22"/>
+      <text x="30" y="56" text-anchor="middle" font-family="serif" font-size="20" fill="#ffe9c2">福</text></svg>
+  </div>
+
+  <div class="cap top">
+    <p class="jp">大阪へようこそ</p>
+    <p class="zh">大阪城　通天閣　道頓堀的霓虹全部亮起來了</p>
+    <div class="rule"></div>
+  </div>
+</section>
+
+<!-- ══════════════ SCENE 4 : 美食 ══════════════ -->
+<section class="scene s4">
+  <div class="asanoha"></div>
+  <div class="cap top">
+    <p class="jp">食い倒れ</p>
+    <p class="zh">大阪人說：吃到破產也心甘情願</p>
+    <div class="rule"></div>
+  </div>
+  <div class="foodwrap">
+
+    <div class="food">
+      <svg viewBox="0 0 140 130">
+        <g class="steam" opacity=".55"><path d="M46 22 q8 -12 0 -22" stroke="#c8b18e" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M70 18 q9 -14 0 -26" stroke="#c8b18e" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M94 22 q8 -12 0 -22" stroke="#c8b18e" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+        <path d="M14 78 L126 78 L114 118 L26 118 Z" fill="#f3e3c4"/>
+        <path d="M14 78 L126 78 L122 92 L18 92 Z" fill="#e6d2ad"/>
+        <g>
+          <circle cx="42" cy="72" r="20" fill="#d99a4e"/><circle cx="42" cy="70" r="20" fill="#e8b064"/>
+          <circle cx="70" cy="66" r="21" fill="#d99a4e"/><circle cx="70" cy="64" r="21" fill="#e8b064"/>
+          <circle cx="98" cy="72" r="20" fill="#d99a4e"/><circle cx="98" cy="70" r="20" fill="#e8b064"/>
+        </g>
+        <path d="M24 66 q18 -12 36 0 q-4 10 -18 11 q-14 -1 -18 -11 Z" fill="#7a4a26" opacity=".85"/>
+        <path d="M51 58 q19 -13 38 0 q-4 11 -19 12 q-15 -1 -19 -12 Z" fill="#7a4a26" opacity=".85"/>
+        <path d="M80 66 q18 -12 36 0 q-4 10 -18 11 q-14 -1 -18 -11 Z" fill="#7a4a26" opacity=".85"/>
+        <g stroke="#f7f2e6" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".95">
+          <path d="M28 64 q14 6 28 0"/><path d="M55 56 q15 6 30 0"/><path d="M84 64 q14 6 28 0"/></g>
+        <g fill="#3f6b32"><circle cx="36" cy="62" r="1.7"/><circle cx="48" cy="66" r="1.7"/><circle cx="64" cy="54" r="1.7"/><circle cx="78" cy="58" r="1.7"/><circle cx="92" cy="64" r="1.7"/><circle cx="106" cy="61" r="1.7"/></g>
+        <g class="flake" fill="#e5c9a2" opacity=".95">
+          <path d="M58 42 q10 -6 18 -2 q-8 6 -18 2Z"/><path d="M84 46 q10 -7 18 -3 q-9 7 -18 3Z"/><path d="M34 48 q9 -6 17 -3 q-8 7 -17 3Z"/></g>
+      </svg>
+      <b>たこ焼き</b><i>章魚燒</i>
+    </div>
+
+    <div class="food">
+      <svg viewBox="0 0 140 130">
+        <g class="steam" opacity=".5" style="animation-delay:.6s"><path d="M56 26 q9 -13 0 -24" stroke="#c8b18e" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M84 26 q9 -13 0 -24" stroke="#c8b18e" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+        <ellipse cx="70" cy="94" rx="58" ry="20" fill="#cfd6de"/>
+        <ellipse cx="70" cy="88" rx="58" ry="20" fill="#eef2f6"/>
+        <ellipse cx="70" cy="82" rx="48" ry="26" fill="#c98b45"/>
+        <ellipse cx="70" cy="78" rx="48" ry="26" fill="#e0a556"/>
+        <ellipse cx="70" cy="76" rx="44" ry="23" fill="#6b3f1f"/>
+        <g stroke="#f7f2e6" stroke-width="3.2" fill="none" stroke-linecap="round">
+          <path d="M32 66 q38 -8 76 0"/><path d="M28 76 q42 -8 84 0"/><path d="M32 86 q38 -8 76 0"/></g>
+        <g fill="#3f6b32" opacity=".9"><circle cx="46" cy="70" r="1.8"/><circle cx="62" cy="64" r="1.8"/><circle cx="86" cy="68" r="1.8"/><circle cx="100" cy="78" r="1.8"/><circle cx="56" cy="84" r="1.8"/><circle cx="80" cy="86" r="1.8"/></g>
+        <g class="flake" fill="#e8cfa8" style="animation-delay:.3s">
+          <path d="M56 52 q12 -7 21 -3 q-10 8 -21 3Z"/><path d="M84 56 q11 -8 20 -4 q-10 9 -20 4Z"/></g>
+      </svg>
+      <b>お好み焼き</b><i>大阪燒</i>
+    </div>
+
+    <div class="food">
+      <svg viewBox="0 0 140 130">
+        <g>
+          <rect x="34" y="34" width="6" height="86" rx="3" fill="#c9a877" transform="rotate(-9 37 77)"/>
+          <rect x="68" y="26" width="6" height="94" rx="3" fill="#c9a877"/>
+          <rect x="100" y="34" width="6" height="86" rx="3" fill="#c9a877" transform="rotate(9 103 77)"/>
+        </g>
+        <g fill="#e0a94f" stroke="#c68a35" stroke-width="2">
+          <rect x="16" y="42" width="38" height="30" rx="10" transform="rotate(-9 35 57)"/>
+          <rect x="18" y="76" width="36" height="26" rx="9" transform="rotate(-9 36 89)"/>
+          <rect x="50" y="32" width="40" height="32" rx="11"/>
+          <rect x="52" y="70" width="36" height="28" rx="10"/>
+          <rect x="88" y="42" width="38" height="30" rx="10" transform="rotate(9 107 57)"/>
+          <rect x="90" y="76" width="36" height="26" rx="9" transform="rotate(9 108 89)"/>
+        </g>
+        <g fill="#f2c877" opacity=".8">
+          <circle cx="30" cy="52" r="2"/><circle cx="40" cy="60" r="2"/><circle cx="34" cy="86" r="2"/>
+          <circle cx="66" cy="44" r="2"/><circle cx="76" cy="52" r="2"/><circle cx="70" cy="82" r="2"/>
+          <circle cx="104" cy="52" r="2"/><circle cx="112" cy="62" r="2"/><circle cx="106" cy="88" r="2"/>
+        </g>
+        <path d="M14 118 q56 12 112 0 l0 8 q-56 12 -112 0 Z" fill="#3b2a1c"/>
+      </svg>
+      <b>串カツ</b><i>炸串</i>
+    </div>
+
+    <div class="food">
+      <svg viewBox="0 0 140 130">
+        <path d="M18 66 q22 -34 58 -34 q34 0 42 24 q4 10 0 20 q-8 24 -42 24 q-36 0 -58 -34 Z" fill="#c78a3f"/>
+        <path d="M18 64 q22 -34 58 -34 q34 0 42 24 q4 10 0 20 q-8 24 -42 24 q-36 0 -58 -34 Z" fill="#e3ab5c"/>
+        <path d="M118 56 q14 -18 20 -16 q-4 14 0 26 q-6 4 -20 -10 Z" fill="#c78a3f"/>
+        <path d="M118 54 q14 -18 20 -16 q-4 14 0 26 q-6 4 -20 -10 Z" fill="#e3ab5c"/>
+        <g stroke="#c78a3f" stroke-width="2.4" fill="none" opacity=".9">
+          <path d="M52 40 q12 24 0 48"/><path d="M70 36 q13 28 0 56"/><path d="M88 40 q12 24 0 48"/></g>
+        <circle cx="36" cy="58" r="5.5" fill="#fdf6e9"/><circle cx="37" cy="58" r="3" fill="#2b2018"/>
+        <path d="M22 74 q10 6 20 2" stroke="#c78a3f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <path d="M40 88 q30 10 58 0" stroke="#c78a3f" stroke-width="2" fill="none" opacity=".6"/>
+      </svg>
+      <b>たい焼き</b><i>鯛魚燒</i>
+    </div>
+
+    <div class="food">
+      <svg viewBox="0 0 140 130">
+        <g class="steam" opacity=".5" style="animation-delay:1s"><path d="M52 34 q9 -14 0 -24" stroke="#c8b18e" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M88 34 q9 -14 0 -24" stroke="#c8b18e" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+        <path d="M18 56 q52 16 104 0 q-8 54 -52 54 q-44 0 -52 -54 Z" fill="#d8dde4"/>
+        <path d="M18 56 q52 16 104 0 q-3 22 -14 36 q-38 12 -76 0 q-11 -14 -14 -36 Z" fill="#e9edf2"/>
+        <ellipse cx="70" cy="58" rx="52" ry="14" fill="#d8a24e"/>
+        <ellipse cx="70" cy="57" rx="52" ry="13" fill="#e8b660"/>
+        <g stroke="#f4e3bd" stroke-width="3" fill="none" stroke-linecap="round">
+          <path d="M34 56 q12 -8 24 0"/><path d="M62 58 q12 -8 24 0"/><path d="M88 54 q12 -8 22 2"/></g>
+        <path d="M40 44 h22 v22 h-22 Z" fill="#2e3a2a" transform="rotate(-8 51 55)"/>
+        <g><ellipse cx="88" cy="54" rx="14" ry="10" fill="#fdf6e9"/><ellipse cx="88" cy="54" rx="7" ry="6" fill="#f0a93c"/></g>
+        <ellipse cx="60" cy="62" rx="13" ry="8" fill="#e8b0a0"/><ellipse cx="60" cy="61" rx="13" ry="7" fill="#f3c4b4"/>
+        <path d="M56 60 q6 -3 10 0" stroke="#d98f7c" stroke-width="2" fill="none"/>
+        <g stroke="#3f6b32" stroke-width="2.4" fill="none"><path d="M100 62 q6 4 10 2"/></g>
+        <path d="M104 30 L128 22 M106 36 L130 28" stroke="#b98a52" stroke-width="4" stroke-linecap="round"/>
+        <g stroke="#c8102e" stroke-width="3" fill="none" opacity=".8"><path d="M22 94 q48 12 96 0"/></g>
+      </svg>
+      <b>ラーメン</b><i>拉麵</i>
+    </div>
+
+    <div class="food">
+      <svg viewBox="0 0 140 130">
+        <path d="M46 48 L94 48 L86 118 L54 118 Z" fill="#e4ecf2" opacity=".75"/>
+        <path d="M46 48 L94 48 L92 66 L48 66 Z" fill="#c9dcc2"/>
+        <path d="M48 66 L92 66 L88 88 L52 88 Z" fill="#f3e6c8"/>
+        <path d="M52 88 L88 88 L86 106 L54 106 Z" fill="#8fb87f"/>
+        <path d="M40 120 h60 v6 h-60 Z" fill="#d3dce4"/>
+        <g>
+          <path d="M70 12 q-22 6 -22 22 q0 12 22 12 q22 0 22 -12 q0 -16 -22 -22 Z" fill="#7aa86a"/>
+          <path d="M70 14 q-18 6 -18 20 q0 10 18 10 q18 0 18 -10 q0 -14 -18 -20 Z" fill="#93bd80"/>
+          <path d="M56 30 q14 -10 28 0" stroke="#c7dbb7" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </g>
+        <circle cx="52" cy="42" r="7" fill="#fdf6e9"/><circle cx="88" cy="42" r="7" fill="#f7d0da"/>
+        <circle cx="70" cy="8" r="5" fill="#e2483b"/>
+        <path d="M96 30 L118 12 L124 20 L102 40 Z" fill="#e0b264"/>
+        <g fill="#3f6b32" opacity=".5"><circle cx="62" cy="34" r="1.6"/><circle cx="78" cy="36" r="1.6"/></g>
+      </svg>
+      <b>抹茶パフェ</b><i>抹茶聖代</i>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════ SCENE 5 : テーマパーク ══════════════ -->
+<section class="scene s5">
+  <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
+  <div id="fireworks"></div>
+
+  <!-- 彩旗 -->
+  <div class="bunting">
+    <svg viewBox="0 0 900 70" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 14 Q225 48 450 18 Q675 -8 900 24" stroke="#d8b04a" stroke-width="2.5" fill="none"/>
+      <g class="flagwave">
+        <path d="M30 17 L52 19 L41 42 Z" fill="#e2483b"/>
+        <path d="M142 29 L164 31 L153 54 Z" fill="#5fb0e8"/>
+        <path d="M254 33 L276 34 L265 57 Z" fill="#ffd86b"/>
+        <path d="M366 26 L388 27 L377 50 Z" fill="#8fd3a8"/>
+        <path d="M478 15 L500 16 L489 39 Z" fill="#e2483b"/>
+        <path d="M590 7 L612 8 L601 31 Z" fill="#ffd86b"/>
+        <path d="M702 7 L724 9 L713 32 Z" fill="#5fb0e8"/>
+        <path d="M814 16 L836 18 L825 41 Z" fill="#8fd3a8"/>
+      </g>
+      <g class="flagwave" style="animation-delay:1.9s">
+        <path d="M86 24 L108 26 L97 49 Z" fill="#ffd86b"/>
+        <path d="M198 32 L220 34 L209 57 Z" fill="#8fd3a8"/>
+        <path d="M310 30 L332 31 L321 54 Z" fill="#e2483b"/>
+        <path d="M422 20 L444 21 L433 44 Z" fill="#5fb0e8"/>
+        <path d="M534 10 L556 11 L545 34 Z" fill="#8fd3a8"/>
+        <path d="M646 6 L668 7 L657 30 Z" fill="#e2483b"/>
+        <path d="M758 11 L780 13 L769 36 Z" fill="#ffd86b"/>
+        <path d="M866 20 L888 22 L877 45 Z" fill="#5fb0e8"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 魔法城堡剪影 -->
+  <div class="castle5">
+    <svg viewBox="0 0 220 240" aria-hidden="true">
+      <path d="M8 240 V196 H26 V150 L34 134 L42 150 V186 H58 V120 L66 102 L74 120 V186 H92 V96 L104 34 L116 96 V186 H134 V128 L142 110 L150 128 V186 H166 V150 L174 134 L182 150 V196 H210 V240 Z" fill="#101b31"/>
+      <path d="M100 44 L104 18 L108 44 Z" fill="#101b31"/>
+      <path d="M104 20 l10 4 l-10 3 Z" fill="#e2483b"/>
+      <g fill="#ffd98a" opacity=".9">
+        <rect x="30" y="156" width="6" height="9" rx="1"/>
+        <rect x="62" y="128" width="7" height="10" rx="1"/>
+        <rect x="100" y="104" width="8" height="12" rx="1"/>
+        <rect x="101" y="128" width="6" height="9" rx="1"/>
+        <rect x="138" y="134" width="7" height="10" rx="1"/>
+        <rect x="170" y="156" width="6" height="9" rx="1"/>
+        <rect x="80" y="196" width="7" height="11" rx="1"/>
+        <rect x="130" y="196" width="7" height="11" rx="1"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 地球儀＋噴水池 -->
+  <div class="globe">
+    <svg viewBox="0 0 300 330" aria-hidden="true">
+      <defs>
+        <clipPath id="gclip"><circle cx="150" cy="140" r="86"/></clipPath>
+      </defs>
+      <ellipse cx="150" cy="306" rx="92" ry="16" fill="#0d1b33" stroke="#27406b" stroke-width="3"/>
+      <ellipse cx="150" cy="301" rx="76" ry="11" fill="#16345c"/>
+      <path d="M136 228 h28 l7 66 h-42 Z" fill="#22344f"/>
+      <ellipse cx="150" cy="228" rx="21" ry="6" fill="#31486b"/>
+      <g stroke="#8fd0f0" fill="none" stroke-linecap="round">
+        <path class="wjet" d="M74 298 Q84 244 122 216" stroke-width="4"/>
+        <path class="wjet" style="animation-delay:.6s" d="M226 298 Q216 244 178 216" stroke-width="4"/>
+        <path class="wjet" style="animation-delay:1.1s" d="M96 302 Q104 262 130 236" stroke-width="3"/>
+        <path class="wjet" style="animation-delay:.3s" d="M204 302 Q196 262 170 236" stroke-width="3"/>
+      </g>
+      <g transform="rotate(-9 150 140)">
+        <path d="M32 140 A118 32 0 0 1 268 140" fill="none" stroke="#cfd8e6" stroke-width="30"/>
+        <path d="M32 140 A118 32 0 0 1 268 140" fill="none" stroke="#17233f" stroke-width="23"/>
+      </g>
+      <circle cx="150" cy="140" r="86" fill="#1d5a9e"/>
+      <g clip-path="url(#gclip)">
+        <circle cx="150" cy="140" r="86" fill="#2467b2"/>
+        <g stroke="#7fc4f2" stroke-width="1.6" opacity=".5" fill="none">
+          <path d="M64 140 H236 M74 98 H226 M74 182 H226 M92 66 H208 M92 214 H208"/>
+          <ellipse cx="150" cy="140" rx="58" ry="86"/><ellipse cx="150" cy="140" rx="26" ry="86"/>
+        </g>
+        <g class="conti" fill="#ccd7e4">
+          <path d="M92 86 q22 -12 38 -2 q8 10 -2 20 q-14 2 -18 12 q-2 12 -13 14 q-11 -3 -13 -15 q-3 -18 8 -29 Z"/>
+          <path d="M108 140 q11 4 11 15 q0 15 -9 23 q-9 -4 -9 -17 q0 -13 7 -21 Z"/>
+          <path d="M170 74 q28 -7 43 6 q9 10 2 19 q-11 -2 -17 6 q11 4 9 15 q-5 13 -18 13 q-4 -11 -13 -13 q-11 -2 -13 -15 q-2 -21 7 -31 Z"/>
+          <path d="M184 140 q15 2 17 15 q2 15 -9 23 q-11 -2 -13 -15 q-2 -15 5 -23 Z"/>
+        </g>
+        <g class="sheen">
+          <ellipse cx="150" cy="140" rx="30" ry="86" fill="rgba(255,255,255,.14)"/>
+          <ellipse cx="150" cy="140" rx="13" ry="86" fill="rgba(255,255,255,.2)"/>
+        </g>
+      </g>
+      <circle cx="150" cy="140" r="86" fill="none" stroke="#cfe4fa" stroke-width="3" opacity=".65"/>
+      <circle cx="120" cy="106" r="26" fill="#fff" opacity=".12"/>
+      <g transform="rotate(-9 150 140)">
+        <path d="M32 140 A118 32 0 0 0 268 140" fill="none" stroke="#cfd8e6" stroke-width="30"/>
+        <path d="M32 140 A118 32 0 0 0 268 140" fill="none" stroke="#17233f" stroke-width="23"/>
+        <path id="ringTP" d="M40 147 A113 30 0 0 0 260 147" fill="none"/>
+        <text font-family="Helvetica,Arial,sans-serif" font-weight="800" font-size="21" fill="#f4f8ff" letter-spacing="5"><textPath href="#ringTP" startOffset="50%" text-anchor="middle">UNIVERSAL</textPath></text>
+      </g>
+      <g fill="#fff">
+        <path class="twk" d="M52 70 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3 Z"/>
+        <path class="twk" style="animation-delay:1.1s" d="M252 96 l2.5 6 6 2.5 -6 2.5 -2.5 6 -2.5 -6 -6 -2.5 6 -2.5 Z"/>
+        <path class="twk" style="animation-delay:.6s" d="M240 206 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 Z"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 旋轉木馬 -->
+  <div class="carousel">
+    <svg viewBox="0 0 360 300" aria-hidden="true">
+      <ellipse cx="180" cy="200" rx="170" ry="90" fill="#ffd98a" opacity=".07"/>
+      <ellipse cx="180" cy="288" rx="148" ry="9" fill="rgba(0,0,0,.3)"/>
+      <path d="M180 20 V8" stroke="#d8b04a" stroke-width="3"/>
+      <path d="M180 2 L196 7 L180 12 Z" fill="#e2483b"/>
+      <circle cx="180" cy="14" r="4.5" fill="#ffd86b" stroke="#d8b04a" stroke-width="1.5"/>
+      <g stroke="#c8383d" stroke-width="1">
+        <path d="M180 20 L20 96 L60 101 Z" fill="#e2483b"/>
+        <path d="M180 20 L60 101 L100 105 Z" fill="#f7e6c8"/>
+        <path d="M180 20 L100 105 L140 107.5 Z" fill="#e2483b"/>
+        <path d="M180 20 L140 107.5 L180 108 Z" fill="#f7e6c8"/>
+        <path d="M180 20 L180 108 L220 107.5 Z" fill="#e2483b"/>
+        <path d="M180 20 L220 107.5 L260 105 Z" fill="#f7e6c8"/>
+        <path d="M180 20 L260 105 L300 101 Z" fill="#e2483b"/>
+        <path d="M180 20 L300 101 L340 96 Z" fill="#f7e6c8"/>
+      </g>
+      <path d="M20 96 L60 101 L100 105 L140 107.5 L180 108 L220 107.5 L260 105 L300 101 L340 96"
+            fill="none" stroke="#d8b04a" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <g fill="#ffd98a">
+        <circle class="twk" cx="20" cy="96" r="2.6"/>
+        <circle class="twk" style="animation-delay:.3s" cx="60" cy="101" r="2.6"/>
+        <circle class="twk" style="animation-delay:.6s" cx="100" cy="105" r="2.6"/>
+        <circle class="twk" style="animation-delay:.9s" cx="140" cy="107.5" r="2.6"/>
+        <circle class="twk" style="animation-delay:1.2s" cx="180" cy="108" r="2.6"/>
+        <circle class="twk" style="animation-delay:1.5s" cx="220" cy="107.5" r="2.6"/>
+        <circle class="twk" style="animation-delay:1.8s" cx="260" cy="105" r="2.6"/>
+        <circle class="twk" style="animation-delay:2.1s" cx="300" cy="101" r="2.6"/>
+        <circle class="twk" style="animation-delay:2.4s" cx="340" cy="96" r="2.6"/>
+      </g>
+      <rect x="175" y="108" width="10" height="134" fill="#c9a44e"/>
+      <rect x="175" y="108" width="3" height="134" fill="#a5842f" opacity=".7"/>
+      <rect x="88" y="106" width="4" height="136" fill="#e8d29a"/>
+      <rect x="268" y="106" width="4" height="136" fill="#e8d29a"/>
+      <ellipse cx="180" cy="268" rx="158" ry="17" fill="#131f36"/>
+      <ellipse cx="180" cy="258" rx="150" ry="18" fill="#1a2a47"/>
+      <ellipse cx="180" cy="246" rx="150" ry="18" fill="#2a3d5c" stroke="#d8b04a" stroke-width="2"/>
+      <g fill="#ffd98a">
+        <circle class="twk" style="animation-delay:.2s" cx="60" cy="262" r="2.2"/>
+        <circle class="twk" style="animation-delay:.7s" cx="120" cy="266" r="2.2"/>
+        <circle class="twk" style="animation-delay:1.3s" cx="180" cy="267" r="2.2"/>
+        <circle class="twk" style="animation-delay:1.7s" cx="240" cy="266" r="2.2"/>
+        <circle class="twk" style="animation-delay:2.2s" cx="300" cy="262" r="2.2"/>
+      </g>
+      <g class="horse">
+        <g transform="translate(90,190)">
+          <path d="M-22 -4 q-12 -2 -12 -12 q10 0 14 8 Z" fill="#e2483b"/>
+          <path d="M-14 8 L-19 28 M-5 10 L-7 30 M7 10 L11 28 M14 6 L20 26" stroke="#e6dcc8" stroke-width="5" stroke-linecap="round"/>
+          <ellipse cx="0" cy="0" rx="24" ry="13" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="2"/>
+          <path d="M15 -5 Q19 -22 29 -26 Q39 -29 40 -20 Q41 -13 33 -10 Q26 -8 24 1 Z" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="2"/>
+          <path d="M30 -28 l3 -7 l5 6 Z" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="1.5"/>
+          <path d="M15 -6 Q20 -20 29 -25 Q25 -14 22 -2 Z" fill="#e2483b"/>
+          <circle cx="34" cy="-18" r="1.7" fill="#3a2b22"/>
+          <rect x="-11" y="-14" width="22" height="11" rx="4.5" fill="#5fb0e8" stroke="#d8b04a" stroke-width="1.6"/>
+        </g>
+      </g>
+      <g class="horse" style="animation-delay:.8s">
+        <g transform="translate(180,192)">
+          <path d="M-22 -4 q-12 -2 -12 -12 q10 0 14 8 Z" fill="#5fb0e8"/>
+          <path d="M-14 8 L-19 28 M-5 10 L-7 30 M7 10 L11 28 M14 6 L20 26" stroke="#e6dcc8" stroke-width="5" stroke-linecap="round"/>
+          <ellipse cx="0" cy="0" rx="24" ry="13" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="2"/>
+          <path d="M15 -5 Q19 -22 29 -26 Q39 -29 40 -20 Q41 -13 33 -10 Q26 -8 24 1 Z" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="2"/>
+          <path d="M30 -28 l3 -7 l5 6 Z" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="1.5"/>
+          <path d="M15 -6 Q20 -20 29 -25 Q25 -14 22 -2 Z" fill="#5fb0e8"/>
+          <circle cx="34" cy="-18" r="1.7" fill="#3a2b22"/>
+          <rect x="-11" y="-14" width="22" height="11" rx="4.5" fill="#e2483b" stroke="#d8b04a" stroke-width="1.6"/>
+        </g>
+      </g>
+      <g class="horse" style="animation-delay:1.6s">
+        <g transform="translate(270,190)">
+          <path d="M-22 -4 q-12 -2 -12 -12 q10 0 14 8 Z" fill="#e8a53c"/>
+          <path d="M-14 8 L-19 28 M-5 10 L-7 30 M7 10 L11 28 M14 6 L20 26" stroke="#e6dcc8" stroke-width="5" stroke-linecap="round"/>
+          <ellipse cx="0" cy="0" rx="24" ry="13" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="2"/>
+          <path d="M15 -5 Q19 -22 29 -26 Q39 -29 40 -20 Q41 -13 33 -10 Q26 -8 24 1 Z" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="2"/>
+          <path d="M30 -28 l3 -7 l5 6 Z" fill="#f6f1e6" stroke="#d6c9b4" stroke-width="1.5"/>
+          <path d="M15 -6 Q20 -20 29 -25 Q25 -14 22 -2 Z" fill="#e8a53c"/>
+          <circle cx="34" cy="-18" r="1.7" fill="#3a2b22"/>
+          <rect x="-11" y="-14" width="22" height="11" rx="4.5" fill="#8fd3a8" stroke="#d8b04a" stroke-width="1.6"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 棕櫚樹 -->
+  <div class="palm pl">
+    <svg viewBox="0 0 140 170" aria-hidden="true">
+      <path d="M66 168 C62 130 58 96 70 64 L78 66 C70 98 74 132 80 168 Z" fill="#14213a"/>
+      <g fill="#14213a">
+        <path d="M74 62 C56 44 30 40 14 50 C34 52 52 58 68 70 Z"/>
+        <path d="M74 62 C60 40 44 26 24 24 C44 34 58 46 70 66 Z"/>
+        <path d="M74 62 C74 36 66 16 50 6 C64 20 70 40 72 64 Z"/>
+        <path d="M74 62 C88 38 104 26 124 24 C104 32 90 46 78 66 Z"/>
+        <path d="M74 62 C92 44 116 40 132 50 C112 52 94 58 78 70 Z"/>
+      </g>
+      <circle cx="70" cy="68" r="4.5" fill="#14213a"/><circle cx="79" cy="70" r="4" fill="#14213a"/>
+    </svg>
+  </div>
+  <div class="palm pr">
+    <svg viewBox="0 0 140 170" aria-hidden="true">
+      <g transform="translate(140 0) scale(-1 1)">
+        <path d="M66 168 C62 130 58 96 70 64 L78 66 C70 98 74 132 80 168 Z" fill="#14213a"/>
+        <g fill="#14213a">
+          <path d="M74 62 C56 44 30 40 14 50 C34 52 52 58 68 70 Z"/>
+          <path d="M74 62 C60 40 44 26 24 24 C44 34 58 46 70 66 Z"/>
+          <path d="M74 62 C74 36 66 16 50 6 C64 20 70 40 72 64 Z"/>
+          <path d="M74 62 C88 38 104 26 124 24 C104 32 90 46 78 66 Z"/>
+          <path d="M74 62 C92 44 116 40 132 50 C112 52 94 58 78 70 Z"/>
+        </g>
+        <circle cx="70" cy="68" r="4.5" fill="#14213a"/><circle cx="79" cy="70" r="4" fill="#14213a"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="cap top">
+    <p class="jp">テーマパークへ</p>
+    <p class="zh">尖叫、排隊、然後說「再玩一次」</p>
+    <div class="rule"></div>
+  </div>
+</section>
+
+<!-- ══════════════ SCENE 6 : キャラクター ══════════════ -->
+<section class="scene s6">
+  <div class="petals" id="petals6"></div>
+  <div class="cap top">
+    <p class="jp">みんなでお見送り</p>
+    <p class="zh">大家都跑出來跟妳打招呼了</p>
+    <div class="rule"></div>
+  </div>
+  <div class="chars">
+
+    <!-- 白色圓圓 -->
+    <div class="ch">
+      <div class="bub">うぅ…いってら…！</div>
+      <svg viewBox="0 0 120 132">
+        <ellipse cx="60" cy="126" rx="30" ry="5" fill="rgba(160,90,110,.13)"/>
+        <circle cx="43" cy="19" r="7.5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <circle cx="77" cy="19" r="7.5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <path d="M40 92 C40 114 46 122 60 122 C74 122 80 114 80 92 Z" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="49" cy="122" rx="8.5" ry="5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="71" cy="122" rx="8.5" ry="5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <g class="arm" style="transform-origin:40px 100px"><ellipse cx="33" cy="100" rx="6.5" ry="5.5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/></g>
+        <ellipse cx="87" cy="100" rx="6.5" ry="5.5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="60" cy="56" rx="39" ry="38" fill="#fffefb" stroke="#4a3428" stroke-width="3"/>
+        <path d="M92 34 q6 -2 5 -8 q-1 -5 -6 -4" stroke="#4a3428" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="44" cy="64" r="6" fill="#2b2118"/><circle cx="76" cy="64" r="6" fill="#2b2118"/>
+        <circle cx="46.2" cy="61.6" r="2.4" fill="#fff"/><circle cx="78.2" cy="61.6" r="2.4" fill="#fff"/>
+        <circle cx="42.4" cy="66.6" r="1" fill="#fff" opacity=".9"/><circle cx="74.4" cy="66.6" r="1" fill="#fff" opacity=".9"/>
+        <ellipse cx="31" cy="74" rx="6.5" ry="4.5" fill="#f7a8b4"/>
+        <ellipse cx="89" cy="74" rx="6.5" ry="4.5" fill="#f7a8b4"/>
+        <g stroke="#ee8296" stroke-width="1.6" stroke-linecap="round">
+          <path d="M26.5 71.5 l3.6 5 M30.5 71 l3.6 5 M34.5 70.5 l3.6 5"/>
+          <path d="M84.5 70.5 l3.6 5 M88.5 71 l3.6 5 M92.5 71.5 l3.6 5"/>
+        </g>
+        <path d="M55 73 Q57.5 71 60 73 Q62.5 71 65 73 Q64.5 79 60 79 Q55.5 79 55 73 Z" fill="#5a3a32"/>
+        <ellipse cx="60" cy="77" rx="3.2" ry="2" fill="#f2a0a8"/>
+      </svg>
+    </div>
+
+    <!-- 白藍貓 -->
+    <div class="ch">
+      <div class="bub">いってらっしゃい！</div>
+      <svg viewBox="0 0 120 132">
+        <ellipse cx="60" cy="126" rx="30" ry="5" fill="rgba(160,90,110,.13)"/>
+        <path d="M31 31 Q32 12 40 8 Q50 12 56 23 Z" fill="#9dc0d8" stroke="#4a3428" stroke-width="2.8"/>
+        <path d="M89 31 Q88 12 80 8 Q70 12 64 23 Z" fill="#9dc0d8" stroke="#4a3428" stroke-width="2.8"/>
+        <path d="M84 100 q16 -2 14 -14 q10 12 -4 20 q-9 5 -10 -6 Z" fill="#9dc0d8" stroke="#4a3428" stroke-width="2.4"/>
+        <path d="M40 92 C40 114 46 122 60 122 C74 122 80 114 80 92 Z" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="49" cy="122" rx="8.5" ry="5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="71" cy="122" rx="8.5" ry="5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <g class="arm" style="transform-origin:40px 100px;animation-delay:.25s"><ellipse cx="33" cy="100" rx="6.5" ry="5.5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/></g>
+        <ellipse cx="87" cy="100" rx="6.5" ry="5.5" fill="#fffefb" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="60" cy="56" rx="39" ry="38" fill="#fffefb" stroke="#4a3428" stroke-width="3"/>
+        <path d="M22 53 C21 28 40 18 60 18 C80 18 99 28 98 53 C92 43 84 39 78 44 Q69 48 60 32 Q51 48 42 44 C36 39 28 43 22 53 Z" fill="#9dc0d8"/>
+        <circle cx="44" cy="62" r="6" fill="#2b2118"/><circle cx="76" cy="62" r="6" fill="#2b2118"/>
+        <circle cx="46.2" cy="59.6" r="2.4" fill="#fff"/><circle cx="78.2" cy="59.6" r="2.4" fill="#fff"/>
+        <circle cx="42.4" cy="64.6" r="1" fill="#fff" opacity=".9"/><circle cx="74.4" cy="64.6" r="1" fill="#fff" opacity=".9"/>
+        <ellipse cx="31" cy="72" rx="6.5" ry="4.5" fill="#f7a8b4"/>
+        <ellipse cx="89" cy="72" rx="6.5" ry="4.5" fill="#f7a8b4"/>
+        <g stroke="#ee8296" stroke-width="1.6" stroke-linecap="round">
+          <path d="M26.5 69.5 l3.6 5 M30.5 69 l3.6 5 M34.5 68.5 l3.6 5"/>
+          <path d="M84.5 68.5 l3.6 5 M88.5 69 l3.6 5 M92.5 69.5 l3.6 5"/>
+        </g>
+        <path d="M53 71 Q56.5 68.5 60 71 Q63.5 68.5 67 71 Q66 78 60 78 Q54 78 53 71 Z" fill="#5a3a32"/>
+        <ellipse cx="60" cy="75.6" rx="3.6" ry="2.2" fill="#f2a0a8"/>
+      </svg>
+    </div>
+
+    <!-- 黃兔 -->
+    <div class="ch">
+      <div class="bub">ウラ！ヤハ！</div>
+      <svg viewBox="0 0 120 150">
+        <ellipse cx="60" cy="146" rx="30" ry="5" fill="rgba(160,90,110,.13)"/>
+        <path d="M46 46 C40 32 41 10 49 7 C57 5 58 28 57 45 Z" fill="#fbe8b8" stroke="#4a3428" stroke-width="2.8"/>
+        <path d="M63 45 C62 26 68 8 77 7 C85 6 84 24 76 42 C72 46 66 46 63 45 Z" fill="#fbe8b8" stroke="#4a3428" stroke-width="2.8"/>
+        <path d="M41 110 C41 132 47 140 60 140 C73 140 79 132 79 110 Z" fill="#fbe8b8" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="49" cy="140" rx="9" ry="5.2" fill="#fbe8b8" stroke="#4a3428" stroke-width="2.8"/>
+        <ellipse cx="71" cy="140" rx="9" ry="5.2" fill="#fbe8b8" stroke="#4a3428" stroke-width="2.8"/>
+        <g class="arm" style="transform-origin:40px 116px;animation-delay:.45s"><ellipse cx="31" cy="112" rx="6.5" ry="5.5" fill="#fbe8b8" stroke="#4a3428" stroke-width="2.8"/></g>
+        <g class="arm" style="transform-origin:80px 116px;animation-delay:.15s"><ellipse cx="89" cy="112" rx="6.5" ry="5.5" fill="#fbe8b8" stroke="#4a3428" stroke-width="2.8"/></g>
+        <ellipse cx="60" cy="78" rx="37" ry="35" fill="#fbe8b8" stroke="#4a3428" stroke-width="3"/>
+        <circle cx="46" cy="84" r="5.8" fill="#2b2118"/><circle cx="74" cy="84" r="5.8" fill="#2b2118"/>
+        <circle cx="48.2" cy="81.6" r="2.3" fill="#fff"/><circle cx="76.2" cy="81.6" r="2.3" fill="#fff"/>
+        <circle cx="44.4" cy="86.6" r="1" fill="#fff" opacity=".9"/><circle cx="72.4" cy="86.6" r="1" fill="#fff" opacity=".9"/>
+        <ellipse cx="31" cy="94" rx="6.5" ry="4.5" fill="#f7a8b4"/>
+        <ellipse cx="89" cy="94" rx="6.5" ry="4.5" fill="#f7a8b4"/>
+        <g stroke="#ee8296" stroke-width="1.6" stroke-linecap="round">
+          <path d="M26.5 91.5 l3.6 5 M30.5 91 l3.6 5 M34.5 90.5 l3.6 5"/>
+          <path d="M84.5 90.5 l3.6 5 M88.5 91 l3.6 5 M92.5 91.5 l3.6 5"/>
+        </g>
+        <path d="M52 95 Q56 92.5 60 95 Q64 92.5 68 95 Q67 106 60 106 Q53 106 52 95 Z" fill="#5a3a32"/>
+        <ellipse cx="60" cy="102.5" rx="4.6" ry="2.8" fill="#f2a0a8"/>
+      </svg>
+    </div>
+
+    <!-- 綠黑市松羽織 -->
+    <div class="ch">
+      <div class="bub">気をつけて！</div>
+      <svg viewBox="0 0 120 140">
+        <defs>
+          <pattern id="ichimatsu" width="14" height="14" patternUnits="userSpaceOnUse">
+            <rect width="14" height="14" fill="#1e2b22"/>
+            <rect width="7" height="7" fill="#3f7d4e"/><rect x="7" y="7" width="7" height="7" fill="#3f7d4e"/>
+          </pattern>
+        </defs>
+        <ellipse cx="60" cy="132" rx="32" ry="6" fill="rgba(160,90,110,.13)"/>
+        <path d="M28 132 q0 -38 32 -38 q32 0 32 38 Z" fill="url(#ichimatsu)"/>
+        <path d="M46 100 q14 20 28 0 q-4 34 -14 34 q-10 0 -14 -34 Z" fill="#f5efe2"/>
+        <path d="M46 100 L60 120 L74 100 L68 96 L60 106 L52 96 Z" fill="#2b2b2b"/>
+        <g class="arm" style="transform-origin:32px 104px;animation-delay:.1s">
+          <path d="M30 102 q-14 -14 -6 -22 q8 -8 18 4 Z" fill="url(#ichimatsu)"/>
+          <circle cx="22" cy="78" r="8" fill="#f0c9a4"/>
+        </g>
+        <path d="M90 102 q14 -8 10 4 q-4 10 -14 6 Z" fill="url(#ichimatsu)"/>
+        <circle cx="98" cy="108" r="7.5" fill="#f0c9a4"/>
+        <circle cx="60" cy="58" r="30" fill="#f2cea8"/>
+        <path d="M30 56 C26 28 40 14 60 14 C80 14 94 28 90 56 L84 44 L79 55 L74 40 L68 52 L62 38 L57 50 L51 40 L45 54 L39 44 L34 56 Z" fill="#5f2b28"/>
+        <path d="M34 34 q10 -12 22 -12 M64 20 q12 2 20 14" stroke="#7b3a30" stroke-width="3" fill="none" stroke-linecap="round" opacity=".7"/>
+        <path d="M37 46 L46 41 L42 47 L51 45 L45 52 Z" fill="#b0483c" opacity=".95"/>
+        <path d="M39 54 q6 -4 12 -2" stroke="#3b1f1c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M69 52 q6 -2 12 2" stroke="#3b1f1c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <ellipse cx="47" cy="62" rx="5.8" ry="6.8" fill="#fff"/><ellipse cx="73" cy="62" rx="5.8" ry="6.8" fill="#fff"/>
+        <circle cx="48" cy="63" r="4" fill="#7e2f35"/><circle cx="74" cy="63" r="4" fill="#7e2f35"/>
+        <circle cx="48.5" cy="63.5" r="1.8" fill="#33141a"/><circle cx="74.5" cy="63.5" r="1.8" fill="#33141a"/>
+        <circle cx="49.6" cy="61" r="1.4" fill="#fff"/><circle cx="75.6" cy="61" r="1.4" fill="#fff"/>
+        <path d="M54 76 q6 5 12 0" stroke="#8a4a3a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <ellipse cx="37" cy="70" rx="6" ry="4" fill="#f0a08c" opacity=".55"/>
+        <ellipse cx="83" cy="70" rx="6" ry="4" fill="#f0a08c" opacity=".55"/>
+        <g>
+          <path d="M31 68 v4" stroke="#8a6a4a" stroke-width="1.6"/>
+          <rect x="26" y="72" width="9" height="15" rx="1.5" fill="#f7f2e6" stroke="#c9bda8" stroke-width="1"/>
+          <circle cx="30.5" cy="77" r="2.6" fill="#e2483b"/>
+          <path d="M27 83 h7 M27 85.5 h7" stroke="#d8b04a" stroke-width="1.4"/>
+        </g>
+        <g>
+          <path d="M89 68 v4" stroke="#8a6a4a" stroke-width="1.6"/>
+          <rect x="85" y="72" width="9" height="15" rx="1.5" fill="#f7f2e6" stroke="#c9bda8" stroke-width="1"/>
+          <circle cx="89.5" cy="77" r="2.6" fill="#e2483b"/>
+          <path d="M86 83 h7 M86 85.5 h7" stroke="#d8b04a" stroke-width="1.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- 粉和服少女 -->
+    <div class="ch">
+      <div class="bub">むー！むむ！♡</div>
+      <svg viewBox="0 0 120 140">
+        <defs>
+          <pattern id="asanohaP" width="16" height="16" patternUnits="userSpaceOnUse">
+            <rect width="16" height="16" fill="#f2a8be"/>
+            <path d="M0 8 H16 M8 0 V16 M0 0 L16 16 M16 0 L0 16" stroke="#f7cddb" stroke-width="1.4"/>
+          </pattern>
+          <pattern id="obiP" width="8" height="8" patternUnits="userSpaceOnUse">
+            <rect width="8" height="8" fill="#f6e8e0"/>
+            <rect width="4" height="4" fill="#c8102e"/><rect x="4" y="4" width="4" height="4" fill="#c8102e"/>
+          </pattern>
+        </defs>
+        <ellipse cx="60" cy="132" rx="32" ry="6" fill="rgba(160,90,110,.13)"/>
+        <path d="M26 56 C20 92 22 116 32 126 L42 112 C36 96 38 74 42 58 Z" fill="#211a1e"/>
+        <path d="M94 56 C100 92 98 116 88 126 L78 112 C84 96 82 74 78 58 Z" fill="#211a1e"/>
+        <path d="M28 106 C28 116 30 122 32 126 L42 112 C39 108 37 104 36 98 Z" fill="#d97b3f"/>
+        <path d="M92 106 C92 116 90 122 88 126 L78 112 C81 108 83 104 84 98 Z" fill="#d97b3f"/>
+        <path d="M30 132 q0 -36 30 -36 q30 0 30 36 Z" fill="url(#asanohaP)"/>
+        <path d="M48 98 L60 112 L72 98 L67 95 L60 104 L53 95 Z" fill="#fbf3e6"/>
+        <rect x="40" y="114" width="40" height="10" rx="3" fill="url(#obiP)" stroke="#c8102e" stroke-width="1"/>
+        <g class="arm" style="transform-origin:32px 104px;animation-delay:.35s">
+          <path d="M32 100 q-16 -10 -10 -20 q7 -9 18 2 q2 8 -8 18 Z" fill="url(#asanohaP)"/>
+          <circle cx="26" cy="78" r="7.5" fill="#f7d6bb"/>
+        </g>
+        <path d="M88 102 q14 -8 10 4 q-4 10 -14 6 Z" fill="url(#asanohaP)"/>
+        <circle cx="96" cy="108" r="7" fill="#f7d6bb"/>
+        <circle cx="60" cy="58" r="30" fill="#f9dcc2"/>
+        <path d="M30 62 C26 30 42 18 60 18 C78 18 94 30 90 62 L84 54 C83 46 80 44 78 50 L73 42 L66 52 L60 40 L54 52 L47 42 L42 50 C40 44 37 46 36 54 Z" fill="#211a1e"/>
+        <path d="M30 60 C28 74 30 84 34 90 L40 84 C36 76 35 68 36 60 Z" fill="#211a1e"/>
+        <path d="M90 60 C92 74 90 84 86 90 L80 84 C84 76 85 68 84 60 Z" fill="#211a1e"/>
+        <path d="M36 28 l-9 -6 l2.5 8 l-8.5 2 l8 4 Z" fill="#e8788a"/>
+        <ellipse cx="46" cy="62" rx="6.2" ry="7.4" fill="#fff"/>
+        <ellipse cx="74" cy="62" rx="6.2" ry="7.4" fill="#fff"/>
+        <circle cx="46.5" cy="63" r="4.6" fill="#ef8fa2"/><circle cx="74.5" cy="63" r="4.6" fill="#ef8fa2"/>
+        <circle cx="46.5" cy="63.5" r="2" fill="#8c3a55"/><circle cx="74.5" cy="63.5" r="2" fill="#8c3a55"/>
+        <circle cx="48" cy="60.6" r="1.5" fill="#fff"/><circle cx="76" cy="60.6" r="1.5" fill="#fff"/>
+        <path d="M39 57 l-3 -2 M40.5 54.5 l-2.5 -3 M81 57 l3 -2 M79.5 54.5 l2.5 -3" stroke="#211a1e" stroke-width="1.8" stroke-linecap="round"/>
+        <ellipse cx="36" cy="70" rx="5.5" ry="3.6" fill="#f4a2ae" opacity=".8"/>
+        <ellipse cx="84" cy="70" rx="5.5" ry="3.6" fill="#f4a2ae" opacity=".8"/>
+        <path d="M32 80 L22 74" stroke="#c8102e" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M88 80 L98 74" stroke="#c8102e" stroke-width="2.2" stroke-linecap="round"/>
+        <rect x="34" y="74" width="52" height="11" rx="5.5" fill="#5d8a54" stroke="#46693f" stroke-width="1.6"/>
+        <path d="M47 74 v11 M60 74 v11 M73 74 v11" stroke="#46693f" stroke-width="1.4"/>
+        <path d="M37 77 h46" stroke="#7fae74" stroke-width="1.6" opacity=".8"/>
+      </svg>
+    </div>
+
+    <!-- 黃髮少年 -->
+    <div class="ch">
+      <div class="bub">おおさか〜！</div>
+      <svg viewBox="0 0 120 140">
+        <defs>
+          <pattern id="uroko" width="18" height="16" patternUnits="userSpaceOnUse">
+            <rect width="18" height="16" fill="#f3f0e4"/>
+            <path d="M9 1 L17 15 L1 15 Z" fill="#f0a445"/>
+          </pattern>
+        </defs>
+        <ellipse cx="60" cy="132" rx="32" ry="6" fill="rgba(160,90,110,.13)"/>
+        <path d="M28 132 q0 -38 32 -38 q32 0 32 38 Z" fill="url(#uroko)"/>
+        <path d="M46 100 q14 20 28 0 q-4 34 -14 34 q-10 0 -14 -34 Z" fill="#e9e3d2"/>
+        <path d="M46 100 L60 120 L74 100 L68 96 L60 106 L52 96 Z" fill="#4b4636"/>
+        <g class="arm" style="transform-origin:32px 104px;animation-delay:.55s">
+          <path d="M30 102 q-14 -14 -6 -22 q8 -8 18 4 Z" fill="url(#uroko)"/>
+          <circle cx="22" cy="78" r="8" fill="#f7d6bb"/>
+        </g>
+        <path d="M90 102 q14 -8 10 4 q-4 10 -14 6 Z" fill="url(#uroko)"/>
+        <circle cx="98" cy="108" r="7.5" fill="#f7d6bb"/>
+        <circle cx="60" cy="58" r="30" fill="#f9dcc2"/>
+        <path d="M28 62 C24 28 42 14 60 14 C78 14 96 28 92 62 L86 50 L82 62 L77 46 L71 58 L65 44 L60 56 L54 44 L48 58 L43 46 L38 62 L33 52 Z" fill="#f7cf4e"/>
+        <path d="M24 46 L12 42 L22 54 Z M96 46 L108 42 L98 54 Z" fill="#f7cf4e"/>
+        <g fill="#e88a3c" opacity=".92">
+          <path d="M86 50 L82 62 L78 52 Z"/><path d="M65 44 L60 56 L55 46 Z"/><path d="M43 46 L38 62 L34 52 Z"/>
+        </g>
+        <path d="M40 55 Q46 50 52 50" stroke="#c9952f" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+        <path d="M80 55 Q74 50 68 50" stroke="#c9952f" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+        <ellipse cx="46" cy="62" rx="6" ry="7" fill="#fff"/><ellipse cx="74" cy="62" rx="6" ry="7" fill="#fff"/>
+        <circle cx="46.5" cy="63" r="4.4" fill="#9a6432"/><circle cx="74.5" cy="63" r="4.4" fill="#9a6432"/>
+        <circle cx="46.5" cy="63.5" r="1.9" fill="#4a2c14"/><circle cx="74.5" cy="63.5" r="1.9" fill="#4a2c14"/>
+        <circle cx="48" cy="60.8" r="1.5" fill="#fff"/><circle cx="76" cy="60.8" r="1.5" fill="#fff"/>
+        <circle cx="44.6" cy="66" r="1.1" fill="#fff" opacity=".9"/><circle cx="72.6" cy="66" r="1.1" fill="#fff" opacity=".9"/>
+        <path d="M92 44 q4 6 0 9 q-4 -3 0 -9 Z" fill="#a8def0"/>
+        <path d="M38 70 q3 5 0 7.5 q-3 -2.5 0 -7.5 Z" fill="#a8def0" opacity=".9"/>
+        <path d="M50 76 Q54 72.5 58 76 Q62 79.5 66 76 Q68 74.5 70 76" stroke="#8a4a3a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <ellipse cx="36" cy="68" rx="6" ry="4" fill="#f4a2ae" opacity=".6"/>
+        <ellipse cx="84" cy="68" rx="6" ry="4" fill="#f4a2ae" opacity=".6"/>
+      </svg>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════ SCENE 6b : おもいで ══════════════ -->
+<section class="scene s6b">
+  <div class="petals" id="petals6b"></div>
+  <div class="cap top">
+    <p class="jp">メンバー、しゅうごう！</p>
+    <p class="zh">最強旅伴　集合完畢</p>
+    <div class="rule"></div>
+  </div>
+  <div class="polawrap">
+    <div class="pola">
+      <div class="tape"></div>
+      <div class="photobox" id="photobox">
+        <img id="friendphoto" alt="いつものメンバー">
+        <div class="photoempty" id="photoempty">
+          <div class="pe">
+            <svg viewBox="0 0 80 60" aria-hidden="true">
+              <rect x="4" y="14" width="72" height="42" rx="8" fill="#f0dfc8" stroke="#d8b89a" stroke-width="2.5"/>
+              <path d="M28 14 L33 6 L47 6 L52 14 Z" fill="#f0dfc8" stroke="#d8b89a" stroke-width="2.5"/>
+              <circle cx="40" cy="35" r="13" fill="#faf3e8" stroke="#d8b89a" stroke-width="2.5"/>
+              <circle cx="40" cy="35" r="6" fill="#e8cfae"/>
+              <circle cx="64" cy="24" r="3" fill="#e8cfae"/>
+            </svg>
+            タップして写真を入れてね<br>點我放上你們的合照
+          </div>
+        </div>
+        <input type="file" id="photoinput" accept="image/*" style="display:none">
+      </div>
+      <div class="note">いつものメンバー ♡</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ SCENE 7 : おわり ══════════════ -->
+<section class="scene s7">
+  <div class="seigaiha"></div>
+  <div class="petals" id="petals7"></div>
+  <div class="torii">
+    <svg viewBox="0 0 400 240" aria-hidden="true">
+      <path d="M14 34 q186 -26 372 0 l-6 16 q-180 -22 -360 0 Z" fill="#c8102e"/>
+      <rect x="30" y="58" width="340" height="16" rx="4" fill="#c8102e"/>
+      <rect x="186" y="50" width="28" height="26" rx="3" fill="#e2483b"/>
+      <path d="M64 66 L52 240 L86 240 L78 66 Z" fill="#c8102e"/>
+      <path d="M336 66 L348 240 L314 240 L322 66 Z" fill="#c8102e"/>
+      <rect x="58" y="112" width="284" height="10" rx="4" fill="#a80d26"/>
+      <g opacity=".25" fill="#fff"><rect x="66" y="70" width="6" height="168"/><rect x="328" y="70" width="6" height="168"/></g>
+    </svg>
+  </div>
+  <div class="finalMsg">
+    <p class="big">行ってらっしゃい</p>
+    <p class="sub">
+      祝妳這趟大阪之旅<br>
+      吃得盡興、玩得開心、拍到滿滿的照片<br>
+      平安出發，平安回來 <span class="heart">♡</span>
+    </p>
+    <div class="replay"><button id="again">もう一度 ・ 再看一次</button></div>
+  </div>
+</section>
+
+<div id="vig"></div>
+<div id="bar"></div>
+<div id="dots"></div>
+<button id="skip">跳過 ▸</button>
+
+<!-- ══════════════ INTRO ══════════════ -->
+<div id="intro">
+  <div class="card">
+    <p class="k">Ｆ Ｏ Ｒ 　 Ｙ Ｏ Ｕ</p>
+    <h1>大阪Trip</h1>
+    <div class="go"><button id="start">▶　開始</button></div>
+    <p class="hint">建議開全螢幕觀看　點畫面可跳下一幕</p>
+  </div>
+</div>
+
 </div>
 
 <script>
-"use strict";
-/* ═══════════ 可調參數 ═══════════ */
-const TARGETS = [-2.007, 0, 2.007];   // 三個視角（弧度）：父親 / 一家三口 / 我
-const DIST = 900, F = 780;            // 相機距離、焦距
-const DEPTH = 340;                    // 粒子縱深散佈
-const SCALE = 0.72;                   // 畫面在世界座標的縮放
-const MAG_RANGE = 0.60;               // 磁吸作用範圍（弧度）
-/* 終幕紙頁：正文一直可見，藏字只在光下現形（行間直書） */
-const PAGE_TEXT   = '他知道兒子的眼睛怕光，怕紙背透出的字影。於是一位將死的作家，決定寫一本每一頁都對齊的書，讓所有空白疊住空白。世上最透明的，從來不是紙，是藏不住的父愛。';
-const HIDDEN_TEXT = '全知９、斜陽、禁忌之子、世界上最透明的故事。跟妳一起讀書和聊天，很開心～';
-/* ════════════════════════════════ */
+(function(){
+  "use strict";
+  var $  = function(s){return document.querySelector(s)};
+  var $$ = function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
 
-const PAL = {
-  deepTeal:[42,116,104], teal:[70,171,151], lightTeal:[96,197,173],
-  mint:[143,227,205], paleMint:[215,255,242], ice:[159,214,232],
-  white:[234,255,251], blossom:[240,192,208]   // 冷調櫻粉，只給櫻花用
-};
-const PKEYS = Object.keys(PAL);
-
-/* ── 繪圖小工具（1000×700 離屏畫布） ── */
-function fill(g,k){ const c=PAL[k]; g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`; }
-function E(g,x,y,rx,ry,rot,k,a){ g.save(); g.globalAlpha=a??1; fill(g,k);
-  g.translate(x,y); g.rotate(rot||0); g.beginPath();
-  g.ellipse(0,0,rx,ry,0,0,7); g.fill(); g.restore(); }
-function C(g,x,y,r,k,a){ E(g,x,y,r,r,0,k,a); }
-function R(g,x,y,w,h,k,a){ g.save(); g.globalAlpha=a??1; fill(g,k); g.fillRect(x,y,w,h); g.restore(); }
-function P(g,pts,k,a){ g.save(); g.globalAlpha=a??1; fill(g,k); g.beginPath();
-  g.moveTo(pts[0][0],pts[0][1]); for(let i=1;i<pts.length;i++) g.lineTo(pts[i][0],pts[i][1]);
-  g.closePath(); g.fill(); g.restore(); }
-
-/* 蓋章：先在周圍刻出一圈暗縫再落筆 → 元素之間有清楚分界 */
-function stamp(g, drawFn, gap){
-  gap = gap ?? 8;
-  const t=document.createElement('canvas'); t.width=1000; t.height=700;
-  const tg=t.getContext('2d'); drawFn(tg);
-  g.save();
-  g.globalCompositeOperation='destination-out';
-  for(let a=0;a<8;a++){
-    g.drawImage(t, Math.cos(a*Math.PI/4)*gap, Math.sin(a*Math.PI/4)*gap);
-  }
-  g.globalCompositeOperation='source-over';
-  g.drawImage(t,0,0);
-  g.restore();
-}
-
-function book(g,x,y,w,t,k){   // 攤開的書（V 形）
-  const h=w*0.11;
-  P(g,[[x-w/2,y+h],[x-4,y],[x-4,y+t],[x-w/2,y+h+t]],k);
-  P(g,[[x+w/2,y+h],[x+4,y],[x+4,y+t],[x+w/2,y+h+t]],k);
-  C(g,x,y+t*0.5,t*0.30,'white');
-}
-function dust(g,x0,y0,ytop,spread,n){  // 上升光塵
-  for(let i=0;i<n;i++){ const t=Math.pow(Math.random(),0.8);
-    const y=y0+(ytop-y0)*t, x=x0+(Math.random()-0.5)*spread*(0.25+t);
-    C(g,x,y,1.8+Math.random()*2.6, Math.random()<0.3?'white':'ice', 0.8-t*0.5); }
-}
-
-/* ── 三幅畫 ── */
-
-function sceneFather(g){       // 父親：櫻花樹下，伸手接住落瓣
-  E(g,470,666,270,14,0,'deepTeal',0.4);                     // 地面
-  // 樹幹（曲線疊橢圓，有機感）
-  stamp(g, tg=>{
-    for(let t=0;t<=1;t+=0.035){
-      const x=726+26*Math.sin(t*2.4+0.3)+t*16, y=658-460*t;
-      E(tg,x,y,15*(1-t*0.55),26,0.1,'deepTeal');
+  /* ---------- procedural decorations ---------- */
+  // stars
+  (function(){
+    var box = $('#stars'); if(!box) return;
+    var html = '';
+    for(var i=0;i<70;i++){
+      var s = (Math.random()*2.2+0.8).toFixed(2);
+      html += '<span style="left:'+(Math.random()*100).toFixed(2)+'%;top:'+(Math.random()*72).toFixed(2)
+           +'%;width:'+s+'px;height:'+s+'px;animation-delay:'+(Math.random()*3.4).toFixed(2)
+           +'s;animation-duration:'+(2.2+Math.random()*2.6).toFixed(2)+'s"></span>';
     }
-    for(let t=0;t<=1;t+=0.05){                              // 往左伸的主枝
-      const x=738-t*190, y=302-t*88-22*Math.sin(t*3);
-      E(tg,x,y,9*(1-t*0.5),15,0.5,'deepTeal');
+    box.innerHTML = html;
+  })();
+
+  // city windows
+  (function(){
+    var c = $('#cityWins'); if(!c) return;
+    var h='';
+    for(var i=0;i<90;i++){
+      h += '<div class="cityWin" style="left:'+(Math.random()*100).toFixed(2)+'%;bottom:'+(26+Math.random()*22).toFixed(2)
+        +'%;animation-delay:'+(Math.random()*3).toFixed(2)+'s"></div>';
     }
-    for(let t=0;t<=1;t+=0.07){                              // 右側小枝
-      E(tg,748+t*95,336-t*112,7*(1-t*0.5),12,-0.4,'deepTeal');
+    c.innerHTML = h;
+  })();
+
+  // fireworks
+  (function(){
+    var f = $('#fireworks'); if(!f) return;
+    var spots = [[16,20],[80,15],[34,10],[64,26],[90,32],[8,34]];
+    var cols  = ['#ffd86b','#ff8fae','#8fd3ff','#c9ff9a','#ffb36b','#e0a0ff'];
+    var h='';
+    for(var s=0;s<spots.length;s++){
+      h += '<div class="fw" style="left:'+spots[s][0]+'%;top:'+spots[s][1]+'%">';
+      for(var k=0;k<14;k++){
+        h += '<i class="spark" style="--a:'+(k*(360/14))+'deg;background:'+cols[s]
+          +';box-shadow:0 0 6px '+cols[s]+';animation-delay:'+(s*0.42+k*0.012).toFixed(2)+'s"></i>';
+      }
+      h += '</div>';
     }
-  },6);
-  // 花冠（花團簇）
-  const clusters=[[598,222,92],[702,150,102],[806,214,90],[878,300,64],[540,296,56],[664,296,72]];
-  for(const [cx,cy,cr] of clusters){
-    const n=Math.round(cr*0.85);
-    for(let i=0;i<n;i++){
-      const a=Math.random()*6.28, rr=cr*Math.sqrt(Math.random());
-      const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr*0.82;
-      const c=Math.random();
-      C(g,x,y,5+Math.random()*7,
-        c<0.32?'blossom':c<0.62?'paleMint':c<0.84?'white':'mint',
-        0.75+Math.random()*0.25);
+    f.innerHTML = h;
+  })();
+
+  // sakura petals
+  function petals(sel, n){
+    var box = $(sel); if(!box) return;
+    var tones = ['#f6b3c4','#f9c8d5','#ffd9e2','#f2a0b8'];
+    var h='';
+    for(var i=0;i<n;i++){
+      var w = (6+Math.random()*9).toFixed(1);
+      h += '<span style="left:'+(Math.random()*100).toFixed(2)+'%;width:'+w+'px;height:'+(w*0.82).toFixed(1)
+        +'px;background:'+tones[i%4]+';opacity:'+(0.5+Math.random()*0.5).toFixed(2)
+        +';animation-duration:'+(6+Math.random()*7).toFixed(2)+'s;animation-delay:'+(Math.random()*8).toFixed(2)+'s"></span>';
+    }
+    box.innerHTML = h;
+  }
+  petals('#petals6', 22);
+  petals('#petals6b', 16);
+  petals('#petals7', 40);
+
+  /* ---------- polaroid photo ---------- */
+  (function(){
+    var box = $('#photobox'), img = $('#friendphoto'), empty = $('#photoempty'), inp = $('#photoinput');
+    if(!box) return;
+    function show(src){ img.src = src; img.style.display = 'block'; empty.style.display = 'none'; }
+    try{ var saved = localStorage.getItem('friendPhoto'); if(saved) show(saved); }catch(e){}
+    // 若同資料夾有 photo.jpg，自動載入
+    var probe = new Image();
+    probe.onload = function(){ show('photo.jpg'); };
+    probe.src = 'photo.jpg';
+    box.addEventListener('click', function(e){ e.stopPropagation(); inp.click(); });
+    inp.addEventListener('click', function(e){ e.stopPropagation(); });
+    inp.addEventListener('change', function(){
+      var f = inp.files && inp.files[0]; if(!f) return;
+      var rd = new FileReader();
+      rd.onload = function(){
+        var im = new Image();
+        im.onload = function(){
+          var w = Math.min(900, im.width), h = Math.round(im.height * w / im.width);
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(im, 0, 0, w, h);
+          var out;
+          try{ out = c.toDataURL('image/jpeg', 0.82); }catch(err){ out = rd.result; }
+          show(out);
+          try{ localStorage.setItem('friendPhoto', out); }catch(err){}
+        };
+        im.src = rd.result;
+      };
+      rd.readAsDataURL(f);
+    });
+  })();
+
+  /* ---------- timeline ---------- */
+  var scenes = $$('.scene');
+  var DUR = [7000, 7600, 9000, 8200, 8200, 9000, 8400, 999999];
+  var idx = -1, timer = null, running = false;
+
+  var dots = $('#dots');
+  dots.innerHTML = scenes.map(function(){return '<i></i>'}).join('');
+  var dotEls = $$('#dots i');
+  var bar = $('#bar');
+
+  function go(n){
+    if(n >= scenes.length) return;
+    if(idx >= 0) scenes[idx].classList.remove('on');
+    idx = n;
+    scenes[idx].classList.add('on');
+    dotEls.forEach(function(d,i){ d.classList.toggle('act', i===idx); });
+    bar.style.width = ((idx+1)/scenes.length*100).toFixed(1)+'%';
+    var light = idx===3 || idx===5 || idx===6 || idx===7;
+    dotEls.forEach(function(d){ if(!d.classList.contains('act')) d.style.background = light ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.32)'; });
+    $('#skip').classList.toggle('show', idx < scenes.length-1);
+    $('#skip').style.color = light ? 'rgba(60,40,45,.7)' : 'rgba(255,255,255,.62)';
+    $('#skip').style.background = light ? 'rgba(255,255,255,.45)' : 'rgba(0,0,0,.25)';
+
+    clearTimeout(timer);
+    if(idx < scenes.length-1){
+      timer = setTimeout(function(){ go(idx+1); }, DUR[idx]);
     }
   }
-  // 父親（整個人蓋章成一體，跟樹之間自帶暗縫）
-  stamp(g, tg=>{
-    E(tg,412,652,34,9,0,'teal');                            // 鞋
-    E(tg,376,650,32,9,0.05,'teal');
-    R(tg,366,556,26,92,'teal');                             // 褲腳
-    R(tg,404,556,26,92,'teal');
-    P(tg,[[350,338],[454,338],[468,452],[500,574],[314,574],[336,452]],'teal'); // 長風衣
-    P(tg,[[398,344],[410,574],[386,574]],'deepTeal',0.9);   // 門襟
-    E(tg,402,344,68,34,0,'teal');                           // 肩
-    P(tg,[[356,346],[398,302],[398,344]],'deepTeal');       // 立起的衣領
-    P(tg,[[448,346],[406,302],[406,344]],'deepTeal');
-    E(tg,344,436,22,76,0.10,'teal');                        // 左臂垂下
-    E(tg,468,398,20,70,-0.55,'teal');                       // 右臂抬起（伸向落瓣）
-    E(tg,502,336,12,9,-0.3,'teal');                         // 手
-    C(tg,402,258,42,'teal');                                // 頭
-    stamp(tg, hg=>{                                          // 帽子（在人物內也刻縫）
-      E(hg,402,232,62,13,-0.06,'deepTeal');                 // 帽簷
-      P(hg,[[374,230],[430,230],[424,184],[380,184]],'deepTeal'); // 帽冠
-      E(hg,402,185,23,8,0,'deepTeal');                      // 冠頂
-    },5);
-  },8);
-  // 飄落的花瓣（斜斜落向父親的手）
-  const petals=[[760,260],[706,318],[652,372],[598,420],[556,378],[540,300],[624,262],[688,222],[528,346],[512,336]];
-  for(const [px,py] of petals)
-    E(g,px,py,5.5,3.2,Math.random()*3,'blossom',0.55+Math.random()*0.4);
-  E(g,507,326,5.5,3.2,0.4,'blossom',0.95);                  // 即將落進手心的那一瓣
-}
 
-function sceneTogether(g){     // 一家三口：月下牽手（母・我・父）
-  for(let i=0;i<16;i++)                                     // 零星的星
-    C(g,90+Math.random()*820,36+Math.random()*160,1.8+Math.random()*2.2,'ice',0.5);
-  C(g,800,140,62,'mint',0.5);                               // 月
-  C(g,822,124,34,'paleMint',0.4);                           // 月的亮側
-  E(g,500,618,330,13,0,'deepTeal',0.35);                    // 地面
-  stamp(g, tg=>{                                            // 父親（右，最高，寬肩直筒）
-    E(tg,640,330,62,30,0,'teal');                           // 肩
-    P(tg,[[586,330],[694,330],[678,472],[602,472]],'teal'); // 軀幹（寬肩收腰）
-    R(tg,608,472,26,130,'teal'); R(tg,646,472,26,130,'teal');
-    E(tg,618,606,20,8,0,'teal'); E(tg,660,606,20,8,0,'teal');
-    E(tg,566,407,14,70,0.44,'teal');                        // 牽向孩子的手臂
-    E(tg,688,400,13,64,-0.06,'teal');                       // 垂下的手臂
-    stamp(tg, hg=>{
-      C(hg,640,262,40,'teal');
-      E(hg,637,240,44,24,-0.08,'deepTeal');
-    },5);
-  },8);
-  stamp(g, tg=>{                                            // 母親（左，長髮＋三角連衣裙）
-    E(tg,356,296,46,52,0,'deepTeal');                       // 頭後方的髮量
-    E(tg,324,360,18,64,0.10,'deepTeal');                    // 左側長髮垂到腰
-    E(tg,330,432,14,50,0.06,'deepTeal');
-    E(tg,398,352,15,52,-0.05,'deepTeal');                   // 右側長髮
-    E(tg,364,346,46,24,0,'mint');                           // 肩
-    P(tg,[[330,340],[398,340],[442,528],[286,528]],'mint'); // 大三角裙（一眼是媽媽）
-    E(tg,422,408,12,60,-0.49,'mint');                       // 牽向孩子的手臂
-    E(tg,310,398,11,56,0.10,'mint');                        // 垂下的手臂
-    R(tg,338,528,13,74,'mint'); R(tg,362,528,13,74,'mint');
-    E(tg,344,606,13,6,0.1,'mint'); E(tg,368,606,13,6,0.1,'mint');
-    stamp(tg, hg=>{
-      C(hg,364,290,36,'mint');
-      E(hg,362,266,41,20,-0.06,'deepTeal');                 // 瀏海
-    },5);
-  },8);
-  stamp(g, tg=>{                                            // 我（中間，一手牽一個）
-    E(tg,500,470,30,42,0,'lightTeal');                      // 身體
-    E(tg,465,456,15,8,0.25,'lightTeal');                    // 舉起牽手的雙臂
-    E(tg,535,456,15,8,-0.25,'lightTeal');
-    R(tg,486,512,13,86,'lightTeal'); R(tg,504,512,13,86,'lightTeal');
-    E(tg,490,602,14,6,0,'lightTeal'); E(tg,512,602,14,6,0,'lightTeal');
-    stamp(tg, hg=>{
-      C(hg,500,408,30,'lightTeal');
-      E(hg,503,390,33,17,0.08,'deepTeal');
-    },5);
-  },8);
-  stamp(g, tg=>{                                            // 牽起的兩雙手，發著光
-    C(tg,546,464,9,'paleMint'); C(tg,454,464,9,'paleMint');
-  },5);
-}
+  function next(){ if(running && idx < scenes.length-1) go(idx+1); }
 
-function sceneSon(g){          // 我：伏案寫字（承接父親的筆）
-  E(g,560,652,265,14,0,'deepTeal',0.4);                     // 地面
-  stamp(g, tg=>{                                            // 書桌
-    R(tg,516,428,300,15,'deepTeal');
-    R(tg,540,443,12,172,'deepTeal'); R(tg,782,443,12,172,'deepTeal');
-  },7);
-  stamp(g, tg=>{                                            // 椅子
-    R(tg,318,336,13,136,'deepTeal');                        // 椅背
-    R(tg,326,466,118,13,'deepTeal');
-    R(tg,338,479,11,138,'deepTeal'); R(tg,420,479,11,138,'deepTeal');
-  },7);
-  stamp(g, tg=>{                                            // 寫字的「我」
-    E(tg,398,392,54,88,0.30,'lightTeal');                   // 軀幹（前傾）
-    E(tg,430,330,44,26,0.25,'lightTeal');                   // 肩
-    E(tg,490,376,56,17,0.50,'lightTeal');                   // 執筆的手臂
-    C(tg,536,408,10,'lightTeal');                           // 手
-    E(tg,430,452,50,17,0.02,'lightTeal');                   // 大腿
-    R(tg,456,462,19,146,'lightTeal');                       // 小腿
-    E(tg,468,612,24,8,0,'lightTeal');                       // 鞋
-    stamp(tg, hg=>{                                         // 低俯的頭
-      C(hg,478,290,38,'lightTeal');
-      E(hg,474,266,42,23,0.12,'deepTeal');
-    },5);
-  },8);
-  P(g,[[532,404],[554,382],[558,386],[536,408]],'paleMint');// 筆（一點光）
-  stamp(g, tg=>{ book(tg,600,398,150,20,'paleMint'); },6);  // 攤開的稿紙（發光）
-  R(g,700,412,64,11,'mint');                                // 疊好的稿
-  P(g,[[716,402],[758,398],[760,408],[718,412]],'mint');
-  C(g,330,642,9,'mint',0.55); C(g,364,650,7,'mint',0.5);    // 揉掉的草稿
-  C(g,300,650,6,'mint',0.45);
-  dust(g,600,386,170,100,26);                               // 稿紙升起的光塵
-}
-
-function scenePage(g){         // 終幕：所有回憶聚成的一頁稿紙（放大版）
-  for(let i=0;i<12;i++)
-    C(g,70+Math.random()*860,30+Math.random()*60,1.8+Math.random()*2,'ice',0.5);
-  R(g,240,100,520,566,'mint',0.20);                         // 紙（內部稀疏，襯托文字）
-  R(g,240,100,520,5,'paleMint',0.9);                        // 四邊亮框
-  R(g,240,661,520,5,'paleMint',0.9);
-  R(g,240,100,5,566,'paleMint',0.9); R(g,755,100,5,566,'paleMint',0.9);
-}
-
-/* ── 取樣：輪廓優先（邊緣密、內部疏） ── */
-function nearest(r,g,b){
-  let bi=0,bd=1e9;
-  for(let i=0;i<PKEYS.length;i++){ const c=PAL[PKEYS[i]];
-    const d=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;
-    if(d<bd){bd=d;bi=i;} }
-  return bi;
-}
-function sample(drawFn,n){
-  const c=document.createElement('canvas'); c.width=1000; c.height=700;
-  const g=c.getContext('2d',{willReadFrequently:true});
-  drawFn(g);
-  const d=g.getImageData(0,0,1000,700).data;
-  const A=(x,y)=>d[(y*1000+x)*4+3];
-  const body=[], glow=[], edge=[];
-  for(let y=4;y<696;y++)for(let x=4;x<996;x++){
-    const i=(y*1000+x)*4, a=d[i+3];
-    if(a<70 || Math.random()>a/255) continue;
-    const isEdge = A(x+3,y)<40||A(x-3,y)<40||A(x,y+3)<40||A(x,y-3)<40;
-    if(isEdge){ edge.push(i); continue; }
-    (((d[i]+d[i+1]+d[i+2])/3>195)?glow:body).push(i);
-  }
-  const pts=[];
-  for(let k=0;k<n;k++){
-    const r=k%20;
-    let arr, kind;
-    if(r<9 && edge.length){ arr=edge; kind=2; }
-    else if(r<12 && glow.length){ arr=glow; kind=1; }
-    else { arr=body.length?body:(edge.length?edge:glow); kind=arr===edge?2:arr===glow?1:0; }
-    const i=arr[(Math.random()*arr.length)|0];
-    const px=(i/4)%1000, py=((i/4)/1000)|0;
-    const jit=kind===2?0.5:1.4;
-    pts.push({ x:(px-500)*SCALE+(Math.random()-0.5)*jit,
-               y:(py-368)*SCALE+(Math.random()-0.5)*jit,
-               ci:nearest(d[i],d[i+1],d[i+2]), kind });
-  }
-  return pts;
-}
-
-/* ── 由目標點反推 3D 位置（anamorphosis） ── */
-function buildSubset(pts,theta){
-  const cs=Math.cos(-theta), sn=Math.sin(-theta);
-  return pts.map(p=>{
-    const dz=(Math.random()*2-1)*DEPTH, zc=DIST+dz;
-    const qx=p.x*zc/F, qy=p.y*zc/F, qz=dz;
-    const sz = p.kind===2 ? 5.2+Math.random()*1.8
-             : p.kind===1 ? 5.8+Math.random()*2.0
-             :              4.2+Math.random()*1.6;
-    return { x:qx*cs+qz*sn, y:qy, z:-qx*sn+qz*cs,
-             ci:p.ci, kind:p.kind, sz,
-             vi:(Math.random()*NVAR)|0,
-             ph:Math.random()*6.28, ws:0.5+Math.random()*0.9,
-             tws:0.8+Math.random()*1.6 };
+  $('#start').addEventListener('click', function(e){
+    e.stopPropagation();
+    $('#intro').classList.add('gone');
+    running = true;
+    setTimeout(function(){ go(0); }, 220);
   });
-}
-
-/* ── 畫布 ── */
-const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
-let W=0,H=0,V=1,CX=0,CY=0;
-const dpr=Math.min(2,window.devicePixelRatio||1);
-function resize(){
-  W=window.innerWidth; H=window.innerHeight;
-  cv.width=W*dpr; cv.height=H*dpr;
-  cv.style.width=W+'px'; cv.style.height=H+'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  V=Math.min(W,H)/800; CX=W/2; CY=H/2;
-}
-window.addEventListener('resize',resize); resize();
-
-/* ── 碎片精靈：角形紙屑，邊緣銳利 ── */
-const SHAPES=[
-  [[8,26],[22,6],[36,24],[24,38]],
-  [[6,20],[30,8],[38,20],[16,36]],
-  [[10,32],[18,8],[28,10],[34,30],[20,38]],
-  [[6,24],[36,12],[30,28]],
-  [[12,6],[22,10],[34,36],[20,38]],
-  [[6,14],[26,6],[38,26],[26,34],[12,32]]
-];
-const NVAR=SHAPES.length;
-const sprites=PKEYS.map(k=>{
-  const c=PAL[k];
-  return SHAPES.map(sh=>{
-    const s=document.createElement('canvas'); s.width=s.height=44;
-    const g=s.getContext('2d');
-    g.shadowColor=`rgba(${c[0]},${c[1]},${c[2]},.8)`; g.shadowBlur=3;
-    g.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.96)`;
-    g.beginPath(); g.moveTo(sh[0][0],sh[0][1]);
-    for(let i=1;i<sh.length;i++) g.lineTo(sh[i][0],sh[i][1]);
-    g.closePath(); g.fill();
-    g.shadowBlur=0;
-    // 內部一小塊高光，讓碎片有「切面」感
-    const cx0=sh.reduce((s2,p)=>s2+p[0],0)/sh.length,
-          cy0=sh.reduce((s2,p)=>s2+p[1],0)/sh.length;
-    g.fillStyle='rgba(255,255,255,.55)';
-    g.beginPath(); g.moveTo(cx0+(sh[0][0]-cx0)*.45, cy0+(sh[0][1]-cy0)*.45);
-    for(let i=1;i<sh.length;i++)
-      g.lineTo(cx0+(sh[i][0]-cx0)*.45, cy0+(sh[i][1]-cy0)*.45);
-    g.closePath(); g.fill();
-    return s;
+  $('#skip').addEventListener('click', function(e){ e.stopPropagation(); next(); });
+  $('#again').addEventListener('click', function(e){ e.stopPropagation(); location.reload(); });
+  $('#app').addEventListener('click', function(){ next(); });
+  document.addEventListener('keydown', function(e){
+    if(e.key===' '||e.key==='ArrowRight'){ e.preventDefault(); if(running) next(); else $('#start').click(); }
   });
-});
-
-/* ── 建立粒子雲 ── */
-const mobile = W*H < 480000;
-const NPER = mobile?1900:3400, NAMB = mobile?220:380;
-const subsets=[
-  buildSubset(sample(sceneFather  ,NPER), TARGETS[0]),
-  buildSubset(sample(sceneTogether,NPER), TARGETS[1]),
-  buildSubset(sample(sceneSon     ,NPER), TARGETS[2])
-];
-const ambient=Array.from({length:NAMB},()=>{
-  const r=520*Math.cbrt(Math.random()), a=Math.random()*6.28, b=Math.acos(2*Math.random()-1);
-  return { x:r*Math.sin(b)*Math.cos(a), y:r*Math.cos(b)*0.7, z:r*Math.sin(b)*Math.sin(a),
-           ci:PKEYS.indexOf(Math.random()<0.6?'ice':'mint'), sz:2.2+Math.random()*1.8,
-           kind:0, vi:(Math.random()*NVAR)|0,
-           ph:Math.random()*6.28, ws:0.4+Math.random()*0.8, tws:0.6+Math.random()*1.4 };
-});
-
-/* 終幕目標：每顆粒子在「那頁稿紙」上的位置 */
-const finalePts=(()=>{
-  const pts=sample(scenePage, NAMB+NPER*3);
-  for(let i=pts.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0;
-    [pts[i],pts[j]]=[pts[j],pts[i]]; }
-  return pts;
 })();
-{ let fi=0;
-  for(const arr of [ambient, subsets[0], subsets[1], subsets[2]])
-    for(const p of arr){ const q=finalePts[fi++]; p.fx=q.x; p.fy=q.y; } }
-
-/* ── 互動狀態 ── */
-let yaw=2.9, pitch=0, vy=0, dragging=false, lx=0, ly=0, idle=0;
-const found=[false,false,false];
-let pulse=0, pulseIdx=-1;
-
-/* ── 音效（發現視角時的風鈴） ── */
-let AC=null;
-function initAudio(){
-  if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
-  if(AC && AC.state==='suspended') AC.resume();
-}
-function chime(freq, when, dur, vol){
-  if(!AC) return;
-  when=when||0; dur=dur||1.6; vol=vol||0.06;
-  const t=AC.currentTime+when;
-  const o=AC.createOscillator(), o2=AC.createOscillator();
-  const g=AC.createGain(), g2=AC.createGain(), f=AC.createBiquadFilter();
-  o.type='sine'; o.frequency.value=freq;
-  o2.type='sine'; o2.frequency.value=freq*2.01; g2.gain.value=0.3;
-  f.type='lowpass'; f.frequency.value=2600;
-  o.connect(g); o2.connect(g2); g2.connect(g); g.connect(f); f.connect(AC.destination);
-  g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(vol,t+0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.start(t); o2.start(t); o.stop(t+dur+0.1); o2.stop(t+dur+0.1);
-}
-const NOTES=[587.33,739.99,880];   // D5 / F#5 / A5，一個視角一個音
-
-/* ── 三幅畫的文案（對齊後浮現） ── */
-const CAPTIONS=[
-  '一生想說的話，他都摺進了紙頁的縫隙。<br>獻給變成大人之前的你——和許久以後，變成大人的你',
-  '這樣的一天，現實裡從來沒有過。<br>可是把世界轉到對的角度，我們一家，其實站在一起。',
-  '換我執筆之後，才讀懂他藏在每個標點裡的溫柔。<br>原來人不會真的離開——他只是化成了字，住在每一頁透著光的地方。'
-];
-const capEl=document.getElementById('caption');
-let capShown=-1;
-const FINALE_TEXT='把這一頁，舉起來對著光。<br>（按住畫面，慢慢移動）';
-/* 終幕紙頁版面：正文直書右起，藏字排進行間 */
-const ROWS_P=12, P_TOP=172, P_ROW=40, P_RIGHT=700, P_COL=64;
-const visChars=(()=>{
-  const chars=[...PAGE_TEXT.replace(/\s/g,'')];
-  const arr=[]; let col=0,row=0;
-  for(const ch of chars){
-    if(row>=ROWS_P){ row=0; col++; }
-    arr.push({ ch, x:P_RIGHT-col*P_COL, y:P_TOP+row*P_ROW });
-    row++;
-  }
-  return arr;
-})();
-const pageChars=(()=>{
-  const chars=[...HIDDEN_TEXT.replace(/\s/g,'')];
-  const nVis=Math.ceil([...PAGE_TEXT.replace(/\s/g,'')].length/ROWS_P);
-  const gaps=Math.max(1,nVis-1);
-  const arr=[]; let idx=0, remaining=chars.length;
-  for(let g2=0; g2<gaps && remaining>0; g2++){
-    const n=Math.min(ROWS_P, Math.round(remaining/(gaps-g2)));
-    const start=Math.max(0,Math.floor((ROWS_P-n)/2));
-    for(let k=0;k<n;k++)
-      arr.push({ ch:chars[idx+k], x:P_RIGHT-g2*P_COL-P_COL/2,
-                 y:P_TOP+(start+k)*P_ROW, rev:0 });
-    idx+=n; remaining-=n;
-  }
-  return arr;
-})();
-let lighting=false, lightX=0, lightY=0, hintHidden=false, lastTap=0;
-
-/* ── 對齊後的動態點綴（花瓣・星光・光塵） ── */
-const gates=[0,0,0];
-function newPetal(any){
-  return { x:540+Math.random()*360, y:any?100+Math.random()*420:100+Math.random()*230,
-           vx:-(14+Math.random()*22), vy:26+Math.random()*24,
-           rot:Math.random()*6.28, vr:(Math.random()<0.5?-1:1)*(0.6+Math.random()*1.2),
-           sw:Math.random()*6.28, sz:4.2+Math.random()*3.2, pink:Math.random()<0.6 };
-}
-const petals=Array.from({length:24},()=>newPetal(true));
-const stars=Array.from({length:12},()=>({ x:120+Math.random()*760, y:38+Math.random()*150,
-  ph:Math.random()*6.28, sp:0.6+Math.random()*1.4, s:1.6+Math.random()*2 }));
-function newMote(bx,by,topY,sway,driftMax){
-  return { bx, by, topY, sway, dm:driftMax,
-           x:bx+(Math.random()-0.5)*26, y:by-Math.random()*30,
-           v:22+Math.random()*26, sw:Math.random()*6.28, r:1.5+Math.random()*1.9,
-           drift:(Math.random()<0.5?-1:1)*driftMax*(0.3+0.7*Math.random()) };
-}
-const sonMotes=Array.from({length:16},()=>newMote(600,394,150,8,16));
-const flies=Array.from({length:9},()=>({                    // 一家三口場景的螢火
-  cx:280+Math.random()*440, cy:300+Math.random()*230,
-  ax:20+Math.random()*30, ay:12+Math.random()*20,
-  fx:0.25+Math.random()*0.4, fy:0.2+Math.random()*0.35,
-  p1:Math.random()*6.28, p2:Math.random()*6.28,
-  tw:0.7+Math.random()*1.2, r:1.6+Math.random()*1.6 }));
-
-/* ── 終幕走馬燈與聚書 ── */
-let carousel=false, carIdx=0, carPhase='dwell', carT=0;
-let finaleOn=false, conv=0, dwellsAfterAll=0;
-const bookMotes=Array.from({length:12},()=>newMote(500,124,36,8,70));  // 紙頁上緣的微光
-function startFinale(){
-  if(finaleOn) return;
-  finaleOn=true; carousel=false; dwellsAfterAll=0;
-  chime(293.66,0.2,2.6,0.05); chime(440,0.65,2.6,0.045);
-  chime(587.33,1.1,3.2,0.04); chime(880,1.6,3.8,0.03);
-}
-
-function wrapPi(a){ a=(a+Math.PI)%(2*Math.PI); if(a<0)a+=2*Math.PI; return a-Math.PI; }
-function smooth(t){ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); }
-
-cv.addEventListener('pointerdown',e=>{
-  initAudio(); idle=0;
-  const now2=Date.now();
-  if(finaleOn && conv>0.8){                 // 紙頁已成形：按住＝把光舉到紙上
-    if(now2-lastTap<350){                   // 快速點兩下＝散回星塵
-      finaleOn=false; dwellsAfterAll=0; hintHidden=false; lighting=false;
-      for(const c of pageChars) c.rev=0;
-    }else{
-      lighting=true; lightX=e.clientX; lightY=e.clientY; hintHidden=true;
-      if(capShown===9){ capEl.classList.remove('show'); capShown=-1; }
-    }
-    lastTap=now2;
-    cv.setPointerCapture(e.pointerId);
-    return;
-  }
-  lastTap=now2;
-  if(finaleOn){ finaleOn=false; dwellsAfterAll=0; }   // 聚攏途中點擊＝取消
-  dragging=true; lx=e.clientX; ly=e.clientY; vy=0;
-  carousel=false;
-  cv.classList.add('grabbing'); cv.setPointerCapture(e.pointerId);
-  document.getElementById('gesture').classList.add('gone');
-});
-cv.addEventListener('pointermove',e=>{
-  if(lighting){ lightX=e.clientX; lightY=e.clientY; return; }
-  if(!dragging) return;
-  const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY;
-  const d=dx*0.0045; yaw+=d; vy=d;
-  pitch=Math.max(-0.5,Math.min(0.5,pitch-dy*0.003));
-  idle=0;
-});
-function up(){ dragging=false; lighting=false; cv.classList.remove('grabbing'); }
-cv.addEventListener('pointerup',up);
-cv.addEventListener('pointercancel',up);
-cv.addEventListener('contextmenu',e=>e.preventDefault());
-
-/* ── 主迴圈 ── */
-let t0=performance.now(), lastNow=t0;
-function frame(now){
-  const t=(now-t0)/1000;
-  const dt=Math.min(0.05,(now-lastNow)/1000); lastNow=now;
-  ctx.clearRect(0,0,W,H);
-  ctx.globalCompositeOperation='lighter';
-
-  if(!dragging){
-    yaw+=vy; vy*=0.94; pitch*=0.93;
-    idle+=1/60;
-  }
-
-  const errs=TARGETS.map(th=>Math.hypot(wrapPi(yaw-th), pitch*1.1));
-  let act=0; for(let i=1;i<3;i++) if(errs[i]<errs[act]) act=i;
-  const aAct=smooth((0.34-errs[act])/(0.34-0.05));
-
-  // 終幕聚書的進度（0＝星塵，1＝成書）
-  conv=Math.max(0,Math.min(1, conv+(finaleOn?dt/3:-dt/1.5)));
-
-  // 終幕走馬燈：三幅找齊後，閒置時自動巡遊三個視角
-  const allFound=found.every(Boolean);
-  if(allFound && !dragging && !carousel && !finaleOn && conv<=0 && idle>4){
-    carousel=true; vy=0; carIdx=act; carPhase='dwell'; carT=0;
-  }
-  if(allFound && !finaleOn && conv<=0 && idle>45) startFinale();  // 保險觸發
-  if(carousel && !dragging){
-    if(carPhase==='dwell'){
-      yaw+=wrapPi(TARGETS[carIdx]-yaw)*0.08; pitch*=0.9; carT+=dt;
-      if(carT>5.2){
-        carPhase='move'; carIdx=(carIdx+1)%3; carT=0;
-        if(allFound && ++dwellsAfterAll>=3) startFinale();   // 巡遊一輪後聚書
-      }
-    }else{
-      const dd=wrapPi(TARGETS[carIdx]-yaw);
-      yaw+=Math.sign(dd)*Math.min(Math.abs(dd)*0.05+0.0012,0.012);
-      pitch*=0.9;
-      if(Math.abs(dd)<0.03){ carPhase='dwell'; carT=0; }
-    }
-  }
-
-  // 磁吸：靠近就明顯吸過去，並吃掉多餘慣性
-  if(!carousel && !dragging && errs[act]<MAG_RANGE && Math.abs(vy)<0.006){
-    const pull=0.05*(1-errs[act]/MAG_RANGE)+0.11*aAct;
-    yaw+=wrapPi(TARGETS[act]-yaw)*pull;
-    pitch*=0.88;
-    vy*=0.86;
-  }
-  if(!carousel && !dragging && idle>5 && aAct<0.3) yaw+=0.0016;
-
-  if(aAct>0.92 && !found[act]){
-    found[act]=true; pulse=1; pulseIdx=act;
-    document.getElementById('d'+act).classList.add('found');
-    chime(NOTES[act]);
-    if(found.every(Boolean)){
-      document.body.classList.add('all');
-      chime(587.33,0.55,1.4,0.05); chime(739.99,0.72,1.4,0.05);
-      chime(880,0.9,1.6,0.05); chime(1174.66,1.2,2.4,0.04);
-      setTimeout(startFinale,10000);         // 三幅看齊後 10 秒，星塵聚成紙頁
-    }
-  }
-  if(pulse>0) pulse=Math.max(0,pulse-0.018);
-
-  // 文案：對齊時淡入，轉走即淡出；終幕成書後顯示最後一句
-  if(finaleOn && conv>=0.98 && !hintHidden){
-    if(capShown!==9){ capEl.innerHTML=FINALE_TEXT; capEl.classList.add('show'); capShown=9; }
-  }else if(conv>0.05){
-    if(capShown!==-1){ capEl.classList.remove('show'); capShown=-1; }
-  }else if(aAct>0.6 && capShown!==act){
-    capEl.innerHTML=CAPTIONS[act]; capEl.classList.add('show'); capShown=act;
-  }else if(aAct<=0.45 && capShown!==-1){
-    capEl.classList.remove('show'); capShown=-1;
-  }
-
-  const cyw=Math.cos(yaw), syw=Math.sin(yaw);
-  const cp=Math.cos(pitch), sp=Math.sin(pitch);
-
-  function drawP(p,alpha,aSub,boost){
-    let x=p.x*cyw+p.z*syw, z=-p.x*syw+p.z*cyw, y=p.y;
-    const w=(1-aSub)*3.5;
-    if(w>0.05){ x+=Math.sin(t*p.ws+p.ph)*w; y+=Math.cos(t*p.ws*0.9+p.ph)*w; }
-    const y2=y*cp-z*sp, zz=(y*sp+z*cp)+DIST;
-    if(zz<140) return;
-    const s=F/zz;
-    let X=CX+x*s*V, Y=CY+y2*s*V;
-    const tw=0.85+0.15*Math.sin(t*p.tws+p.ph);
-    const damp=1-aSub*0.7;
-    let al=alpha*(1-(1-tw)*damp);
-    let sz=p.sz*(0.55+0.45*s)*V*(boost||1);   // 壓縮遠近尺寸差，畫面更整齊
-    if(conv>0){                                // 終幕：所有粒子聚攏成那本書
-      const e=smooth(conv);
-      X+=(CX+p.fx*V-X)*e; Y+=(CY+p.fy*V-Y)*e;
-      al=al*(1-e)+(0.9-(1-tw)*0.35)*e;
-      sz=sz*(1-e)+p.sz*0.9*V*e;
-    }
-    ctx.globalAlpha=Math.min(1,al);
-    ctx.drawImage(sprites[p.ci][p.vi], X-sz/2, Y-sz/2, sz, sz);
-  }
-
-  const ambA=0.15*(1-aAct*0.8);
-  for(const p of ambient) drawP(p,ambA,0,1);
-
-  for(let i=0;i<3;i++){
-    const aSub=(i===act)?aAct:0;
-    const alpha=(i===act)?(0.80+0.20*aAct):0.80*(1-aAct*0.95);
-    const boost=(i===pulseIdx)?(1+pulse*0.5):1;
-    for(const p of subsets[i]){
-      const mul = p.kind===2?1.0 : p.kind===1?1.0 : 0.66;
-      drawP(p, alpha*mul, aSub, boost);
-    }
-  }
-
-  /* ── 對齊後的動態點綴 ── */
-  const mapX=px=>CX+(px-500)*SCALE*V, mapY=py=>CY+(py-368)*SCALE*V;
-  for(let i=0;i<3;i++){
-    const gt=(i===act)?Math.max(0,(aAct-0.5)*2)*(1-conv):0;
-    gates[i]+=(gt-gates[i])*0.08;
-  }
-  if(conv>0.9) drawMotes(bookMotes, Math.min(1,(conv-0.9)*10));  // 紙頁上緣的微光
-
-  /* ── 終幕：把光舉到紙上，藏字現形 ── */
-  if(conv>0.5){
-    const pa=smooth((conv-0.5)*2);
-    const r2=Math.max(90,Math.min(W,H)*0.16);
-    if(lighting){                            // 暖色光斑
-      const lg=ctx.createRadialGradient(lightX,lightY,0,lightX,lightY,r2*1.7);
-      lg.addColorStop(0,'rgba(255,225,160,0.20)');
-      lg.addColorStop(1,'rgba(255,225,160,0)');
-      ctx.globalAlpha=pa; ctx.fillStyle=lg; ctx.fillRect(0,0,W,H);
-    }
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    // 一直看得見的正文
-    ctx.font=`600 ${Math.max(13,33*SCALE*V)}px "Noto Serif TC","Songti TC","PMingLiU",serif`;
-    ctx.shadowColor='rgba(160,240,215,.5)'; ctx.shadowBlur=3;
-    ctx.fillStyle='rgba(216,247,235,1)';
-    ctx.globalAlpha=pa*0.88;
-    for(const c of visChars) ctx.fillText(c.ch, mapX(c.x), mapY(c.y));
-    // 行間的藏字（光照到才現形）
-    ctx.font=`600 ${Math.max(12,29*SCALE*V)}px "Noto Serif TC","Songti TC","PMingLiU",serif`;
-    for(const c of pageChars){
-      const sx=mapX(c.x), sy=mapY(c.y);
-      let v=0;
-      if(lighting){
-        const d=Math.hypot(sx-lightX,sy-lightY);
-        v=Math.max(0,1-d/r2); v=Math.min(1,v*v*1.5);
-      }
-      c.rev=Math.max(c.rev,v);
-      const a=Math.max(v,c.rev*0.35)*pa;     // 照過的字留下淡淡痕跡
-      if(a>0.012){
-        ctx.globalAlpha=Math.min(1,a);
-        ctx.shadowColor='rgba(255,230,170,.85)'; ctx.shadowBlur=2+10*v;
-        ctx.fillStyle='rgba(255,238,198,1)';
-        ctx.fillText(c.ch,sx,sy);
-      }
-    }
-    ctx.shadowBlur=0;
-  }
-  if(gates[0]>0.02){                       // 父親：櫻花瓣持續飄落
-    const g0=gates[0];
-    for(const p of petals){
-      p.x+=p.vx*dt; p.y+=p.vy*dt; p.rot+=p.vr*dt;
-      if(p.y>648||p.x<170) Object.assign(p,newPetal(false));
-      const xd=p.x+Math.sin(t*1.3+p.sw)*14;
-      ctx.save();
-      ctx.translate(mapX(xd),mapY(p.y)); ctx.rotate(p.rot);
-      ctx.globalAlpha=0.8*g0;
-      ctx.fillStyle=p.pink?'rgba(240,192,208,1)':'rgba(230,248,242,1)';
-      ctx.beginPath(); ctx.ellipse(0,0,p.sz*V,p.sz*0.55*V,0,0,7); ctx.fill();
-      ctx.restore();
-    }
-  }
-  if(gates[1]>0.02){                       // 一家三口：星星呼吸＋書頁光塵
-    const g1=gates[1];
-    ctx.save(); ctx.shadowColor='rgba(234,255,251,.8)'; ctx.shadowBlur=5*V;
-    for(const st of stars){
-      const a=(0.18+0.6*Math.max(0,Math.sin(t*st.sp+st.ph)))*g1;
-      const s=st.s*V, x=mapX(st.x), y=mapY(st.y);
-      ctx.globalAlpha=a; ctx.fillStyle='rgba(234,255,251,1)';
-      ctx.beginPath();
-      ctx.moveTo(x,y-s); ctx.lineTo(x+s*0.3,y); ctx.lineTo(x,y+s); ctx.lineTo(x-s*0.3,y);
-      ctx.closePath(); ctx.fill();
-    }
-    ctx.restore();
-    ctx.save(); ctx.shadowColor='rgba(200,255,235,.9)'; ctx.shadowBlur=9*V;
-    for(const f of flies){                                  // 遊蕩的螢火
-      const x=f.cx+Math.sin(t*f.fx+f.p1)*f.ax, y=f.cy+Math.cos(t*f.fy+f.p2)*f.ay;
-      ctx.globalAlpha=(0.2+0.55*Math.max(0,Math.sin(t*f.tw+f.p1)))*g1;
-      ctx.fillStyle='rgba(224,255,244,1)';
-      ctx.beginPath(); ctx.arc(mapX(x),mapY(y),f.r*V,0,7); ctx.fill();
-    }
-    ctx.restore();
-  }
-  if(gates[2]>0.02){                       // 我：稿紙光塵＋筆尖的微光
-    drawMotes(sonMotes,gates[2]);
-    const sp=Math.pow(Math.max(0,Math.sin(t*2.1)),3)*gates[2];
-    if(sp>0.03){
-      const x=mapX(556), y=mapY(382), s=(4+5*sp)*V;
-      ctx.save(); ctx.globalAlpha=sp*0.9;
-      ctx.strokeStyle='rgba(234,255,251,1)'; ctx.lineWidth=1.4;
-      ctx.beginPath();
-      ctx.moveTo(x-s,y); ctx.lineTo(x+s,y);
-      ctx.moveTo(x,y-s); ctx.lineTo(x,y+s);
-      ctx.stroke(); ctx.restore();
-    }
-  }
-
-  function drawMotes(motes,g){
-    ctx.save(); ctx.shadowColor='rgba(180,255,230,.9)'; ctx.shadowBlur=8*V;
-    for(const m of motes){
-      m.y-=m.v*dt;
-      const prog=(m.by-m.y)/(m.by-m.topY);
-      if(prog>=1){ Object.assign(m,newMote(m.bx,m.by,m.topY,m.sway,m.dm)); continue; }
-      const xd=m.x+m.drift*prog+Math.sin(t*1.1+m.sw)*m.sway;
-      ctx.globalAlpha=(1-prog)*0.8*g;
-      ctx.fillStyle='rgba(215,255,242,1)';
-      ctx.beginPath(); ctx.arc(mapX(xd),mapY(m.y),m.r*V,0,7); ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  if(pulse>0){
-    const g=ctx.createRadialGradient(CX,CY,0,CX,CY,Math.max(W,H)*0.6);
-    g.addColorStop(0,`rgba(160,240,215,${0.30*pulse})`);
-    g.addColorStop(1,'rgba(160,240,215,0)');
-    ctx.globalAlpha=1; ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-  }
-
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
 </script>
 </body>
 </html>
