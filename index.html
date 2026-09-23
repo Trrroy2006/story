@@ -222,6 +222,16 @@ function mouth(kind, color = '#9a4b48') {
   } else if (kind === 'frown') {
     const m = mesh(new THREE.TorusGeometry(0.035, 0.009, 8, 24, Math.PI * 0.7), dark, false);
     m.rotation.z = Math.PI * 0.15; m.position.y = -0.01; g.add(m);
+  } else if (kind === '3') { // anime pout: a little "3" drawn as a line
+    const pts = [];
+    const r3 = 0.0145;
+    for (let i = 0; i <= 16; i++) { const a = Math.PI / 2 - Math.PI * i / 16; pts.push(new V3(Math.cos(a) * r3, r3 + Math.sin(a) * r3, 0)); }
+    for (let i = 1; i <= 16; i++) { const a = Math.PI / 2 - Math.PI * i / 16; pts.push(new V3(Math.cos(a) * r3, -r3 + Math.sin(a) * r3, 0)); }
+    const m = mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, 0.0058, 8, false), mat('#8a4441', 0.5), false);
+    m.position.z = 0.006; g.add(m);
+  } else if (kind === 'pucker') { // small round puckered lips
+    const r = mesh(new THREE.TorusGeometry(0.017, 0.009, 12, 24), mat('#d98580', 0.45), false); r.scale.set(1.05, 0.9, 1); r.position.z = 0.012; g.add(r);
+    const d = mesh(new THREE.SphereGeometry(0.009, 12, 8), mat('#7a3b38', 0.5), false); d.scale.set(1, 0.8, 0.4); d.position.z = 0.012; g.add(d);
   } else if (kind === 'duck') { // closed, pushed-forward lips
     const up = mesh(new THREE.SphereGeometry(0.03, 20, 14), lip, false); up.scale.set(1.25, 0.55, 0.9); up.position.set(0, 0.012, 0.02); g.add(up);
     const lo = mesh(new THREE.SphereGeometry(0.03, 20, 14), lip, false); lo.scale.set(1.15, 0.6, 0.95); lo.position.set(0, -0.013, 0.021); g.add(lo);
@@ -368,31 +378,33 @@ function buildCharacter(o) {
   HS = new V3(...(o.headScale || [1.0, 0.96, 0.94]));
   const root = new THREE.Group();
   const body = new THREE.Group(); root.add(body);
+  const lift = o.lift || 0;              // taller / shorter people: longer legs, not floating
+  const upper = new THREE.Group(); upper.position.y = lift; body.add(upper);
   const shirt = mat(o.shirt, 0.85);
   // legs
   [-1, 1].forEach((s) => {
-    const l = mesh(new THREE.CapsuleGeometry(0.1, 0.38, 6, 12), mat(o.pants || '#2c3140', 0.8)); l.position.set(s * 0.12, 0.3, 0); body.add(l);
+    const l = mesh(new THREE.CapsuleGeometry(0.1, Math.max(0.05, 0.38 + lift), 6, 12), mat(o.pants || '#2c3140', 0.8)); l.position.set(s * 0.12, 0.3 + lift / 2, 0); body.add(l);
     const sh = mesh(new THREE.SphereGeometry(0.1, 16, 12), mat(o.shoes || '#f1f1f1', 0.6)); sh.scale.set(1, 0.6, 1.5); sh.position.set(s * 0.12, 0.06, 0.05); body.add(sh);
   });
   const torso = mesh(new THREE.CapsuleGeometry(0.28, 0.42, 8, 24), shirt);
-  torso.scale.set(1.28, 1, 0.82); torso.position.y = 0.92; body.add(torso);
+  torso.scale.set(1.28, 1, 0.82); torso.position.y = 0.92; upper.add(torso);
   if (o.shirtMap) { torso.material = new THREE.MeshStandardMaterial({ map: o.shirtMap, roughness: 0.85 }); }
-  const chest = new THREE.Group(); chest.position.y = 0.92; chest.scale.set(1.28, 1, 0.82); body.add(chest);
+  const chest = new THREE.Group(); chest.position.y = 0.92; chest.scale.set(1.28, 1, 0.82); upper.add(chest);
   (o.outfit || []).forEach((fn) => fn(chest, o));
   // neck
-  const neck = mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.16, 16), mat(o.skin, 0.55)); neck.position.y = 1.44; body.add(neck);
+  const neck = mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.16, 16), mat(o.skin, 0.55)); neck.position.y = 1.44; upper.add(neck);
   // arms
   const arms = {};
   [['R', -1], ['L', 1]].forEach(([k, s]) => {
     const pose = (o.pose && o.pose[k]) || {};
-    const a = buildArm(o, s, pose); a.position.set(s * 0.37, 1.3, 0); body.add(a); arms[k] = a;
+    const a = buildArm(o, s, pose); a.position.set(s * 0.37, 1.3, 0); upper.add(a); arms[k] = a;
   });
   // head
-  const headPivot = new THREE.Group(); headPivot.position.y = 1.5; body.add(headPivot);
+  const headPivot = new THREE.Group(); headPivot.position.y = 1.5; upper.add(headPivot);
   const head = buildHead(o); head.position.y = R * 0.92; headPivot.add(head);
   if (o.headRot) headPivot.rotation.set(...o.headRot);
-  ['R', 'L'].forEach((k) => { const p = o.pose && o.pose[k]; if (p && p.target) p.ikErr = solveArm(root, body, arms[k], p.target, p.fdir, p.palm); });
-  root.userData = { body, head, headPivot, arms, torso, spec: o, baseHeadRot: headPivot.rotation.clone() };
+  ['R', 'L'].forEach((k) => { const p = o.pose && o.pose[k]; if (p && p.target) p.ikErr = solveArm(root, upper, arms[k], p.target, p.fdir, p.palm); });
+  root.userData = { body, upper, head, headPivot, arms, torso, spec: o, baseHeadRot: headPivot.rotation.clone() };
   root.scale.setScalar(o.scale || 1);
   return root;
 }
@@ -623,20 +635,20 @@ function necklace(pendant = true, drop = 0.16) {
   // ---------- the seven ----------
   const H = (c, o) => hairShell(c, o);
   const specs = [
-    { name: 'back-left', y: 0.2, pos: [-1.95, -0.7], scale: 1.2, skin: '#f0c7ab', hair: '#171717',
-      hairParts: () => [H('#171717', { limit: limitFn({ front: 1.4, side: 1.74, back: 2.22, face: 0.8, jag: 0.11, jagN: 12 }), volume: 0.16, base: 1.09, strands: 14, bump: (p, t) => 0.025 * Math.sin(p * 5 + 1) * Math.cos(t * 2) })],
+    { name: 'back-left', lift: 0.36, pos: [-1.95, -0.7], scale: 1.2, skin: '#f0c7ab', hair: '#171717',
+      hairParts: () => [H('#171717', { limit: limitFn({ front: 1.42, side: 1.8, back: 2.25, face: 0.82, jag: 0.05, jagN: 14, jagPow: 1 }), volume: 0.2, base: 1.13, strands: 10, tuck: 0.0, bump: (p, t) => 0.02 * Math.sin(p * 4 + 1) * Math.cos(t * 2) })],
       headScale: [1.08, 0.98, 0.95], eyeSize: 0.042, eyeOpen: 0.72, mouth: 'line', glasses: { shape: 'soft', w: 0.106, h: 0.074, color: '#c9c6c0', thick: 0.0045, browline: '#1b1a1a' },
       shirt: '#8e9094', shortSleeve: true, outfit: [band('#1d1d20', -0.02, 0.16), collar('#eee5d3')], pants: '#30343d', headRot: [0.02, 0.1, 0] },
-    { name: 'back-mid', y: 0.36, pos: [-1.42, -1.4], scale: 1.08, skin: '#e8bf9e', hair: '#141414',
-      hairParts: () => [H('#141414', { limit: limitFn({ front: 1.22, side: 1.47, back: 2.05, face: 0.9, jag: 0.06, jagN: 14 }), volume: 0.07, base: 1.05 })],
+    { name: 'back-mid', lift: 0.4, pos: [-1.5, -1.45], scale: 1.02, skin: '#e8bf9e', hair: '#141414',
+      hairParts: () => [H('#1a1a1a', { limit: limitFn({ front: 1.08, side: 1.32, back: 1.95, face: 0.92, jag: 0.05, jagN: 22, jagPow: 2 }), volume: 0.03, base: 1.02, strands: 30, tuck: 0.02 })],
       headScale: [0.98, 1.03, 0.94], eyeSize: 0.04, eyeOpen: 0.62, mouth: 'frown', browTilt: -0.05, glasses: { shape: 'round', w: 0.1, h: 0.084, color: '#8f8a84', thick: 0.0045 },
       shirt: '#b3a47e', shortSleeve: true, outfit: [strap('#ddd0b3', -1)], headRot: [-0.14, 0.12, 0.03] },
-    { name: 'back-right', y: 0.33, pos: [-0.12, -1.0], scale: 1.12, skin: '#eec4a4', hair: '#121212',
-      hairParts: () => [H('#141414', { limit: limitFn({ front: 1.08, side: 1.42, back: 2.05, face: 0.85, jag: 0.08, jagN: 9, frontFn: (p) => 1.24 + 0.1 * Math.tanh(p * 2.2) }), volume: 0.15, base: 1.05, strands: 14, bump: (p, t) => 0.03 * Math.pow(Math.abs(Math.sin(p * 7 + t * 4)), 2) * Math.cos(t) })],
+    { name: 'back-right', lift: 0.44, pos: [-0.12, -1.0], scale: 1.12, skin: '#eec4a4', hair: '#121212',
+      hairParts: () => [H('#141414', { limit: limitFn({ front: 1.1, side: 1.4, back: 2.0, face: 0.85, jag: 0.12, jagN: 6, jagPow: 1.6, frontFn: (p) => 1.0 + 0.28 * (0.5 + 0.5 * Math.tanh(p * 1.5)) }), volume: 0.2, base: 1.05, strands: 12, tuck: 0.03, bump: (p, t) => 0.07 * Math.pow(Math.abs(Math.sin(p * 6 + t * 9)), 5) * Math.pow(Math.cos(t), 2) })],
       headScale: [1.06, 1.02, 0.95], eyeSize: 0.037, eyeOpen: 1.0, mouth: 'purse', browColor: '#151515', glasses: { shape: 'rect', w: 0.102, h: 0.074, color: '#2a2626', thick: 0.0105 },
       shirt: '#f3f3f0', shortSleeve: true, outfit: [strap('#161616', 1, 0.032)],
       pose: { R: { hand: 'v', sz: 2.5, target: [-0.5, 1.98, 0.12], fdir: [0.1, 1, 0.1] }, L: { sz: 2.5, target: [0.5, 1.95, -0.05], fdir: [0, 1, 0] } }, headRot: [-0.05, -0.05, 0] },
-    { name: 'front-left', y: -0.14, pos: [-0.98, 0.75], scale: 0.9, skin: '#f7dccb', hair: '#4b3125', lashes: true, blush: 0.35,
+    { name: 'front-left', lift: -0.14, pos: [-0.98, 0.75], scale: 0.9, skin: '#f7dccb', hair: '#4b3125', lashes: true, blush: 0.35,
       hairParts: () => [
         H('#6a4633', { limit: limitFn({ front: 1.22, side: 1.95, back: 2.3, face: 0.78, jag: 0.3, jagN: 16, jagPow: 3 }), volume: 0.07, base: 1.06, strands: 30, tuck: 0.05 }),
         hairCurtain('#6a4633', { top: -0.1, len: 0.8, gapTop: 1.1, gapBot: 0.95, rBot: R * 1.22, jag: 0.06 }),
@@ -653,7 +665,7 @@ function necklace(pendant = true, drop = 0.16) {
         H('#18161a', { limit: limitFn({ front: 1.42, side: 1.9, back: 2.2, face: 0.8, jag: 0.035, jagN: 19 }), volume: 0.06, base: 1.07 }),
         hairCurtain('#18161a', { top: -0.05, len: 0.92, gapTop: 0.95, gapBot: 0.52, rBot: R * 1.28, jag: 0.05 }),
       ],
-      headScale: [1.04, 0.96, 0.94], eyeSize: 0.044, eyeOpen: 1.15, mouth: 'duck', glasses: { shape: 'round', w: 0.094, h: 0.086, color: '#5e5854', thick: 0.005 },
+      headScale: [1.04, 0.96, 0.94], eyeSize: 0.044, eyeOpen: 1.15, mouth: 'pucker', mouthV: -0.37, glasses: { shape: 'round', w: 0.094, h: 0.086, color: '#5e5854', thick: 0.005 },
       shirt: '#efe6d7', shirtMap: ribTex, outfit: [necklace(true, 0.1)],
       pose: { R: { hand: 'v', sx: -0.5, ex: -2, target: [-0.13, 1.6, 0.44], fdir: [0.1, 1, 0.1] } }, headRot: [0.03, 0.08, -0.04] },
     { name: 'front-right', pos: [0.42, 0.5], scale: 0.95, skin: '#f5d4c1', hair: '#151316', lashes: true, blush: 0.35,
@@ -694,8 +706,8 @@ function necklace(pendant = true, drop = 0.16) {
     Object.entries(sp.pose).forEach(([k2, p]) => {
       if (!p.worldTarget) return;
       c.updateMatrixWorld(true);
-      const t = c.userData.body.worldToLocal(new V3(...p.worldTarget));
-      p.ikErr = solveArm(c, c.userData.body, c.userData.arms[k2], t.toArray(), p.fdir, p.palm);
+      const t = c.userData.upper.worldToLocal(new V3(...p.worldTarget));
+      p.ikErr = solveArm(c, c.userData.upper, c.userData.arms[k2], t.toArray(), p.fdir, p.palm);
     });
   });
 
